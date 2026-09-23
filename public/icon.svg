@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="100%" stop-color="#0c0a09" />
+    </linearGradient>
+    <linearGradient id="sun" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  
+  <!-- Outer Solar Rays -->
+  <g stroke="url(#sun)" stroke-width="18" stroke-linecap="round" opacity="0.9">
+    <line x1="256" y1="72" x2="256" y2="108" />
+    <line x1="256" y1="404" x2="256" y2="440" />
+    <line x1="72" y1="256" x2="108" y2="256" />
+    <line x1="404" y1="256" x2="440" y2="256" />
+    <line x1="126" y1="126" x2="152" y2="152" />
+    <line x1="360" y1="360" x2="386" y2="386" />
+    <line x1="126" y1="386" x2="152" y2="360" />
+    <line x1="360" y1="152" x2="386" y2="126" />
+  </g>
+
+  <!-- Central Glow / Solar Panel Grid -->
+  <circle cx="256" cy="256" r="92" fill="url(#sun)"/>
+  
+  <!-- Solar Panel Grid overlay -->
+  <g stroke="#1c1917" stroke-width="8" stroke-linecap="round" opacity="0.8">
+    <line x1="256" y1="172" x2="256" y2="340" />
+    <line x1="196" y1="216" x2="316" y2="216" />
+    <line x1="184" y1="256" x2="328" y2="256" />
+    <line x1="196" y1="296" x2="316" y2="296" />
+  </g>
+  
+  <!-- K&S Energy Brand Indicator Accent -->
+  <path d="M 230 200 L 270 256 L 245 256 L 275 315 L 240 268 L 260 268 Z" fill="#ffffff" opacity="0.95" />
+</svg>

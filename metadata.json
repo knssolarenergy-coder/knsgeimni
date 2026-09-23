@@ -1,0 +1,6 @@
+{
+  "name": "K&S Solar Energy Mobile App",
+  "description": "Official K&S Solar Energy Mobile App - Solar panel washing bookings, inverter telemetry portals, admin dispatch console, and field technician portal for complaints & wash visits.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
