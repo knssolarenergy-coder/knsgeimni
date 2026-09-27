@@ -20,6 +20,9 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   estimatedPrice: number;
+  userId?: string;
+  customerId?: string;
+  userEmail?: string;
   // Technician Assignment (Single & Multiple Crew support)
   assignedTechnicianId?: string;
   assignedTechnicianName?: string;
@@ -41,9 +44,13 @@ export interface InverterBrand {
 
 export type ComplaintSubject =
   | 'inverter_offline'
+  | 'inverter_fault'
   | 'low_generation'
   | 'washing_issue'
   | 'wiring_leakage'
+  | 'wiring_physical_damage'
+  | 'battery_not_charging'
+  | 'leakage_earthing'
   | 'other';
 
 export type ComplaintStatus = 'pending' | 'assigned' | 'in_progress' | 'resolved';
@@ -59,6 +66,9 @@ export interface Complaint {
   description: string;
   status: ComplaintStatus;
   createdAt: string;
+  userId?: string;
+  customerId?: string;
+  userEmail?: string;
   // Technician Assignment (Single & Multiple Crew support)
   assignedTechnicianId?: string;
   assignedTechnicianName?: string;
@@ -89,6 +99,9 @@ export interface QuoteRequest {
   estimatedMonthlySavingsPkr: number;
   status: QuoteStatus;
   createdAt: string;
+  userId?: string;
+  customerId?: string;
+  userEmail?: string;
   // Technician Assignment for Site Survey (Single & Multiple Crew support)
   assignedTechnicianId?: string;
   assignedTechnicianName?: string;
@@ -115,7 +128,7 @@ export type InstallationMilestoneStatus = 'pending' | 'in_progress' | 'completed
 export interface InstallationMilestone {
   id: string;
   title: string;
-  titleUrdu: string;
+  titleUrdu?: string;
   description: string;
   status: InstallationMilestoneStatus;
   completedAt?: string;
@@ -177,6 +190,7 @@ export interface TechnicianLiveLocation {
   lng: number;
   address: string;
   speedKmh: number;
+  accuracy?: number;
   heading: number;
   batteryLevel: number;
   status: TechTrackingStatus;
@@ -260,6 +274,7 @@ export interface AppSettings {
   timezone_offset_hours?: number;
   app_version?: string;
   admin_password?: string;
+  email_api_key?: string;
   // 24/7 Technician Live Tracking Policy
   enforce_24h_tech_tracking: boolean;
   tech_tracking_ping_interval_sec: number;
@@ -379,4 +394,26 @@ export interface CustomerWarranty {
   authorizedDealer: string; // e.g. "K&S Solar Energy (Pvt) Ltd"
   technicianNotes?: string;
   createdAt: string;
+}
+
+// =========================================================
+// TRASH & SOFT-DELETE RECYCLE BIN MODELS
+// =========================================================
+export type TrashItemType =
+  | 'booking'
+  | 'complaint'
+  | 'site'
+  | 'site_visit'
+  | 'technician'
+  | 'user';
+
+export interface TrashItem {
+  id: string; // unique ID e.g. trash_booking_BK-101_1720000000
+  originalId: string;
+  itemType: TrashItemType;
+  title: string;
+  subtitle?: string;
+  deletedAt: string;
+  deletedBy?: string;
+  itemData: any; // snapshot of the original object
 }

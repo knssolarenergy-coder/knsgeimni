@@ -22,6 +22,8 @@ import {
 import { AuthAccount, UserProfile, UserRole } from '../types';
 import { StorageService } from '../services/storage';
 import { CITIES } from '../data/mockData';
+import { KS_LOGO_SRC } from '../assets/logoData';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -41,6 +43,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
 
   // Customer Registration Fields
   const [name, setName] = useState('');
@@ -76,28 +79,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       // ignore
     }
   }, []);
-
-  // Quick 1-Tap Demo Credentials
-  const handleQuickFill = (type: 'customer' | 'technician' | 'admin' | 'pending') => {
-    setErrorMessage('');
-    setIsRegisterMode(false);
-    setPendingApprovalAccount(null);
-    setShowRegSuccessPending(false);
-
-    if (type === 'admin') {
-      setLoginIdentifier('admin@kssolar.pk');
-      setPassword('admin123');
-    } else if (type === 'technician') {
-      setLoginIdentifier('usman@kssolar.pk');
-      setPassword('tech123');
-    } else if (type === 'pending') {
-      setLoginIdentifier('taimoor@example.com');
-      setPassword('user123');
-    } else {
-      setLoginIdentifier('ahmed@kssolar.pk');
-      setPassword('user123');
-    }
-  };
 
   // WhatsApp activation request handler
   const handleContactAdminForApproval = (accName: string, accPhone: string) => {
@@ -191,12 +172,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div className="min-h-full bg-[#05131f] text-slate-100 flex flex-col justify-center px-4 py-6">
+    <div className="min-h-full bg-[#05131f] text-slate-100 flex flex-col justify-center px-4 py-6 relative">
+      {/* Back to Dashboard Button */}
+      {onCancel && (
+        <div className="mb-3 flex items-center justify-start">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold border border-white/15 transition active:scale-95 shadow-xs"
+          >
+            <ChevronLeft className="w-4 h-4 text-amber-400" />
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Brand Logo */}
       <div className="text-center space-y-2 mb-4">
         <div className="inline-flex items-center justify-center p-2 rounded-3xl bg-gradient-to-tr from-[#0b3858] via-[#0e4b75] to-[#07243a] ring-2 ring-amber-400/50 shadow-xl shadow-amber-500/10 mb-1">
           <img
-            src="/ks-solar-logo.png"
+            src={KS_LOGO_SRC}
             alt="K&S Solar Energy Pvt. Ltd"
             className="w-16 h-16 rounded-2xl object-contain bg-white p-1 shadow-md"
           />
@@ -219,13 +214,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
           <div>
             <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-black uppercase tracking-wider">
-              Verification Required • تصدیق درکار ہے
+              Verification Required
             </span>
             <h3 className="text-base font-black text-white mt-1">
               Account Pending Admin Approval
             </h3>
-            <p className="text-xs font-bold text-amber-300">
-              اکاؤنٹ کی منظوری زیر التواء ہے
+            <p className="text-xs font-medium text-amber-300">
+              Your account is awaiting administrative review.
             </p>
           </div>
 
@@ -248,7 +243,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-300 leading-relaxed">
-            آپ کا اکاؤنٹ کامیابی سے بن چکا ہے۔ سکیورٹی وجوہات کی بنا پر K&amp;S Solar ایڈمن کے تصدیق کرنے کے بعد آپ کا اکاؤنٹ ایکٹیویٹ ہو جائے گا۔ فوری منظوری کے لیے نیچے واٹس ایپ بٹن پر رابطہ کریں۔
+            Your account was registered successfully. For security reasons, K&amp;S Solar Admin will review and activate your account. For instant approval, you can contact our operations helpline on WhatsApp below.
           </p>
 
           <div className="space-y-2 pt-1">
@@ -294,30 +289,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             <div>
               <div className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                 <span>☼</span>
-                <span>{isRegisterMode ? 'New Customer Registration' : 'Universal Sign In'}</span>
+                <span>{isRegisterMode ? 'New Customer Registration' : 'Sign In'}</span>
               </div>
               <p className="text-[11px] text-slate-300 mt-0.5">
                 {isRegisterMode
                   ? 'Register your account. Admin will approve your access.'
-                  : 'Enter your credentials. Automatic routing to your portal.'}
+                  : 'Enter your credentials to access your account.'}
               </p>
             </div>
             <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#0d3450] text-sky-200 border border-[#194c73] font-mono">
-              {isRegisterMode ? 'Sign Up' : 'Unified Login'}
+              {isRegisterMode ? 'Sign Up' : 'Sign In'}
             </span>
           </div>
-
-          {/* Smart Notice */}
-          {!isRegisterMode && (
-            <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-2.5 flex items-center gap-2 text-[11px] text-sky-200">
-              <div className="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-300 flex items-center justify-center shrink-0">
-                <Shield className="w-3.5 h-3.5" />
-              </div>
-              <p className="leading-tight">
-                <strong>All Portals in One:</strong> Customers, Field Technicians, and Admin all sign in from this single form.
-              </p>
-            </div>
-          )}
 
           {/* Error Alert */}
           {errorMessage && (
@@ -333,7 +316,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <>
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
-                    Full Name (پورا نام) <span className="text-rose-400">*</span>
+                    Full Name <span className="text-rose-400">*</span>
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -367,7 +350,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 font-semibold mb-1">City (شہر)</label>
+                    <label className="block text-slate-300 font-semibold mb-1">City</label>
                     <select
                       value={registerCity}
                       onChange={(e) => setRegisterCity(e.target.value)}
@@ -428,9 +411,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-slate-300 font-semibold text-xs flex items-center gap-1">
                       <Gift className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Referral Code (ریفرل کوڈ)</span>
+                      <span>Referral Code</span>
                     </label>
-                    <span className="text-[10px] text-amber-300/80 font-normal">Optional • اختیاری</span>
+                    <span className="text-[10px] text-amber-300/80 font-normal">Optional</span>
                   </div>
                   <input
                     type="text"
@@ -459,7 +442,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       required
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="e.g. 03001234567, admin, usman"
+                      placeholder="e.g. admin, username, or email"
                       className="w-full bg-[#0a273e] border border-[#144770] text-slate-100 rounded-xl pl-9 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-amber-400 focus:outline-none font-medium"
                     />
                   </div>
@@ -468,9 +451,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-slate-300 font-semibold">Password</label>
-                    <span className="text-[10px] text-slate-400">
-                      Secret Key
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPasswordOpen(true)}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold hover:underline"
+                    >
+                      Forgot Password?
+                    </button>
                   </div>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -505,7 +492,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               ) : (
                 <>
                   <span>
-                    {isRegisterMode ? 'Submit Registration for Approval' : 'Sign In / لاگ ان کریں'}
+                    {isRegisterMode ? 'Submit Registration for Approval' : 'Sign In'}
                   </span>
                   <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </>
@@ -530,71 +517,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </button>
           </div>
 
-          {/* Quick 1-Tap Demo Credentials Bar (Demonstrates Auto-Routing & Approval) */}
-          <div className="pt-2 border-t border-[#123e61] space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
-              <span className="flex items-center gap-1 font-semibold text-slate-300">
-                <KeyRound className="w-3 h-3 text-amber-400" />
-                <span>1-Tap Test Accounts:</span>
-              </span>
-              <span className="text-[10px] text-slate-400">Auto-routes to role</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('customer')}
-                className="p-2 rounded-xl bg-[#082135] hover:bg-[#0c2f4a] border border-[#144872] text-left transition active:scale-95"
-              >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400">
-                  <User className="w-3 h-3" />
-                  <span>Customer (Ahmed)</span>
-                </div>
-                <p className="text-[9px] text-slate-300 font-mono truncate">ahmed@kssolar.pk</p>
-                <p className="text-[8px] text-emerald-400 font-semibold">● Approved User</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill('technician')}
-                className="p-2 rounded-xl bg-[#082135] hover:bg-[#0c2f4a] border border-[#144872] text-left transition active:scale-95"
-              >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-sky-400">
-                  <Wrench className="w-3 h-3" />
-                  <span>Technician (Usman)</span>
-                </div>
-                <p className="text-[9px] text-slate-300 font-mono truncate">usman@kssolar.pk</p>
-                <p className="text-[8px] text-sky-300 font-semibold">● Field Staff Portal</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admin')}
-                className="p-2 rounded-xl bg-[#082135] hover:bg-[#0c2f4a] border border-[#144872] text-left transition active:scale-95"
-              >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-rose-400">
-                  <Shield className="w-3 h-3" />
-                  <span>Admin Operations</span>
-                </div>
-                <p className="text-[9px] text-slate-300 font-mono truncate">admin@kssolar.pk</p>
-                <p className="text-[8px] text-rose-300 font-semibold">● Dispatch &amp; Approval</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill('pending')}
-                className="p-2 rounded-xl bg-[#082135] hover:bg-[#0c2f4a] border border-amber-500/30 text-left transition active:scale-95"
-              >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-300">
-                  <Clock className="w-3 h-3 text-amber-400" />
-                  <span>Pending Customer</span>
-                </div>
-                <p className="text-[9px] text-slate-300 font-mono truncate">taimoor@example.com</p>
-                <p className="text-[8px] text-amber-400 font-semibold">● Tests Approval Check</p>
-              </button>
-            </div>
-          </div>
-
           {/* Optional Cancel/Dismiss if user already had an active session */}
           {onCancel && (
             <div className="text-center pt-1">
@@ -613,8 +535,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       {/* Footer Info */}
       <div className="text-center mt-5 text-[10px] text-slate-400 space-y-1">
         <p>K&amp;S Solar Energy (Pvt.) Ltd • Smart Solar Operations &amp; Dispatch</p>
-        <p>Head Office: Bhakkar &amp; Lahore, Pakistan • 24/7 Helpline</p>
+        <p>Head Office: Bhakkar, Pakistan • 24/7 Helpline</p>
+        <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider pt-1.5 opacity-90">
+          Design and Developed by Yousuf Enterprises
+        </p>
       </div>
+
+      {/* Forgot Password Recovery Modal */}
+      <ForgotPasswordModal
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+        onSuccessLogin={(email) => {
+          setLoginIdentifier(email);
+          setIsRegisterMode(false);
+        }}
+      />
     </div>
   );
 };

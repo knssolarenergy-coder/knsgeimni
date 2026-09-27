@@ -26,6 +26,7 @@ import {
   FileText,
   MessageCircle,
   Search,
+  ArrowLeft,
 } from 'lucide-react';
 import { CustomerWarranty, UserProfile } from '../types';
 import { StorageService } from '../services/storage';
@@ -37,6 +38,7 @@ interface AccountScreenProps {
   onUpdateUser: (updated: UserProfile) => void;
   onOpenReferralModal?: () => void;
   onOpenWarrantySearch?: () => void;
+  onNavigateBack?: () => void;
   whatsappNumber?: string;
 }
 
@@ -58,6 +60,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   onUpdateUser,
   onOpenReferralModal,
   onOpenWarrantySearch,
+  onNavigateBack,
   whatsappNumber = '923001234567',
 }) => {
   // Warranty state
@@ -180,7 +183,18 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   return (
     <div className="bg-[#032333] min-h-screen text-slate-800 pb-28">
       {/* Top Profile Header (Dark Teal / Cyan Gradient) */}
-      <div className="pt-6 pb-6 px-4 text-center flex flex-col items-center">
+      <div className="pt-5 pb-6 px-4 text-center flex flex-col items-center relative">
+        {onNavigateBack && (
+          <button
+            type="button"
+            onClick={onNavigateBack}
+            title="Go Back"
+            className="absolute top-4 left-4 w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center active:scale-95 transition shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        )}
+
         {/* Avatar Circle */}
         <div className="w-16 h-16 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-white text-2xl font-black mb-2 shadow-inner">
           {(user.name || 'S').charAt(0).toUpperCase()}

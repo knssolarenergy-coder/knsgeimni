@@ -80,13 +80,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
   };
 
   const handleShareWhatsApp = () => {
-    const text = `🌟 *K&S Solar Energy App — کیش انعام اور سولر سروسز!*
-میری طرف سے K&S Solar Energy کی ایپ ڈاؤن لوڈ کریں اور بہترین سولر واشنگ، انورٹر وائرنگ اور سولر سسٹم انسٹالیشن پر زبردست ڈسکاؤنٹ حاصل کریں۔
+    const text = `🌟 *K&S Solar Energy App — Earn Cash Rewards & Solar Services!*
+Download K&S Solar Energy app and get exclusive discounts on solar washing, inverter wiring, and solar system installations.
 
-🎁 *میرا ریفرل کوڈ درج کریں:* ${referralCode}
-📲 *ڈاؤن لوڈ لنک:* ${shareUrl}
+🎁 *Use my Referral Code:* ${referralCode}
+📲 *Download Link:* ${shareUrl}
 
-کے اینڈ ایس سولر انرجی (پرائیویٹ) لمیٹڈ پاکستان۔`;
+K&S Solar Energy (Pvt) Ltd Pakistan.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -96,17 +96,17 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     setWithdrawSuccess(null);
 
     if (withdrawAmount <= 0) {
-      setWithdrawError('براہ کرم درست رقم درج کریں۔');
+      setWithdrawError('Please enter a valid withdrawal amount.');
       return;
     }
 
     if (withdrawAmount > availableBalance) {
-      setWithdrawError(`آپ کے پاس صرف PKR ${availableBalance.toLocaleString()} بیلنس دستیاب ہے۔`);
+      setWithdrawError(`You have only PKR ${availableBalance.toLocaleString()} available in your reward balance.`);
       return;
     }
 
     if (!accountTitle.trim() || !accountNumber.trim()) {
-      setWithdrawError('اکاؤنٹ ٹائٹل اور موبائل/اکاؤنٹ نمبر درج کرنا ضروری ہے۔');
+      setWithdrawError('Account title and mobile/account number are required.');
       return;
     }
 
@@ -127,7 +127,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     }
 
     setWithdrawSuccess(
-      `مبارک ہو! آپ کی PKR ${withdrawAmount.toLocaleString()} کیش انعام کی درخواست درج ہو گئی ہے۔ ایڈمن ٹیم جلد ہی آپ کے ${paymentMethod.toUpperCase()} اکاؤنٹ میں رقم منتقل کرے گی۔`
+      `Congratulations! Your PKR ${withdrawAmount.toLocaleString()} reward withdrawal request has been submitted. Admin team will transfer the amount to your ${paymentMethod.toUpperCase()} account shortly.`
     );
 
     // Update user state in memory
@@ -159,24 +159,24 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                  Referral Cash Prize Program
+                  Referral Rewards Program
                 </span>
                 {isProgramActive ? (
                   <span className="text-[10px] font-bold text-emerald-300 flex items-center gap-1 bg-emerald-500/20 px-1.5 py-0.5 rounded">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    ایکٹیو
+                    Active
                   </span>
                 ) : (
                   <span className="text-[10px] font-bold text-rose-300 bg-rose-500/20 px-1.5 py-0.5 rounded">
-                    عارضی موقوف
+                    Paused
                   </span>
                 )}
               </div>
               <h2 className="text-lg font-black tracking-tight text-white mt-1">
-                ریفر کریں اور کیش انعام پائیں
+                Refer Friends &amp; Earn Cash
               </h2>
               <p className="text-xs text-sky-200 mt-0.5">
-                ہر دوست کو ایپ ڈاؤن لوڈ کروانے پر نقد کیش انعام EasyPaisa/JazzCash میں حاصل کریں
+                Get instant cash rewards in your EasyPaisa, JazzCash, or Bank account for every referral.
               </p>
             </div>
           </div>
@@ -189,9 +189,9 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">ریفرل کیش انعام پروگرام اس وقت ایڈمن کی طرف سے عارضی طور پر بند ہے</p>
+                <p className="font-bold">Referral program is temporarily paused by admin</p>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  پروگرام بحال ہوتے ہی آپ اپنے ریفرل لنک کے ذریعے نئے انعامات کما سکیں گے۔ آپ کا سابقہ بیلنس محفوظ ہے۔
+                  Your current balance is completely safe. You can still withdraw your existing balance below.
                 </p>
               </div>
             </div>
@@ -200,21 +200,21 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
           {/* Highlights & Wallet Overview */}
           <div className="grid grid-cols-3 gap-2 bg-gradient-to-br from-stone-50 to-stone-100 p-3 rounded-2xl border border-stone-200 text-center">
             <div>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">کل کیش انعام</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">Total Rewards</p>
               <p className="text-base font-black text-amber-600 mt-0.5">
                 PKR {totalEarnings.toLocaleString()}
               </p>
             </div>
             <div className="border-x border-stone-200 px-1">
-              <p className="text-[10px] font-bold text-stone-500 uppercase">دستیاب بیلنس</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">Available Balance</p>
               <p className="text-base font-black text-emerald-600 mt-0.5">
                 PKR {availableBalance.toLocaleString()}
               </p>
             </div>
             <div>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">کامیاب دوست</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">Referred Friends</p>
               <p className="text-base font-black text-sky-700 mt-0.5">
-                {myReferrals.length} فرینڈز
+                {myReferrals.length}
               </p>
             </div>
           </div>
@@ -230,7 +230,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               }`}
             >
               <Share2 className="w-3.5 h-3.5 text-amber-500" />
-              <span>ریفرل لنک و کوڈ</span>
+              <span>Share Code &amp; Link</span>
             </button>
             <button
               onClick={() => setActiveSubTab('withdraw')}
@@ -241,7 +241,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               }`}
             >
               <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>کیش نکلوائیں ({availableBalance > 0 ? `PKR ${availableBalance}` : '0'})</span>
+              <span>Withdraw ({availableBalance > 0 ? `PKR ${availableBalance.toLocaleString()}` : '0'})</span>
             </button>
             <button
               onClick={() => setActiveSubTab('history')}
@@ -252,7 +252,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               }`}
             >
               <Users className="w-3.5 h-3.5 text-sky-600" />
-              <span>ہسٹری ({myReferrals.length})</span>
+              <span>History ({myReferrals.length})</span>
             </button>
           </div>
 
@@ -267,10 +267,10 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                       Special Cash Reward
                     </span>
                     <h3 className="text-xl font-black mt-1">
-                      PKR {rewardAmount.toLocaleString()} فی ریفرل!
+                      PKR {rewardAmount.toLocaleString()} per Referral!
                     </h3>
                     <p className="text-xs font-semibold mt-0.5 opacity-90">
-                      جب بھی کوئی آپ کے لنک یا کوڈ سے ایپ ڈاؤن لوڈ اور سائن اپ کرے گا، آپ کو فوری نقد کیش انعام ملے گا۔
+                      Whenever someone signs up with your link or code, you get rewarded instantly.
                     </p>
                   </div>
                   <Sparkles className="w-8 h-8 text-stone-950/70" />
@@ -280,7 +280,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               {/* Referral Code Box */}
               <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5">
                 <span className="text-[11px] font-bold text-stone-500 uppercase block mb-1">
-                  آپ کا منفرد ریفرل کوڈ (Your Referral Code)
+                  Your Unique Referral Code
                 </span>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 bg-white border-2 border-dashed border-amber-400 rounded-xl px-4 py-2 font-mono text-lg font-black text-stone-900 tracking-wider text-center">
@@ -291,7 +291,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition"
                   >
                     {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedCode ? 'کاپی ہو گیا' : 'کوڈ کاپی'}</span>
+                    <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
                   </button>
                 </div>
               </div>
@@ -299,7 +299,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               {/* Referral Link Box */}
               <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5">
                 <span className="text-[11px] font-bold text-stone-500 uppercase block mb-1">
-                  ڈائریکٹ ریفرل ڈاؤن لوڈ لنک (Direct App Link)
+                  Direct Referral App Link
                 </span>
                 <div className="flex items-center gap-2">
                   <input
@@ -313,7 +313,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     className="px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95 transition shrink-0"
                   >
                     {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedLink ? 'کاپی ہو گیا' : 'لنک کاپی'}</span>
+                    <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
                   </button>
                 </div>
               </div>
@@ -324,19 +324,19 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                 className="w-full py-3.5 rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition"
               >
                 <Share2 className="w-4 h-4" />
-                <span>واٹس ایپ پر دوستوں کو بھیجیں (Share on WhatsApp)</span>
+                <span>Share with Friends on WhatsApp</span>
               </button>
 
               {/* How it works steps */}
               <div className="bg-sky-50 border border-sky-100 rounded-2xl p-3 text-xs text-sky-950 space-y-2">
                 <div className="font-bold flex items-center gap-1.5 text-sky-900">
                   <ShieldCheck className="w-4 h-4 text-sky-600" />
-                  <span>یہ پروگرام کیسے کام کرتا ہے؟</span>
+                  <span>How Does It Work?</span>
                 </div>
                 <div className="grid grid-cols-1 gap-1.5 text-[11px] text-sky-800">
-                  <p>1️⃣ واٹس ایپ پر اپنا لنک یا کوڈ اپنے دوستوں اور رشتہ داروں کو بھیجیں۔</p>
-                  <p>2️⃣ وہ ایپ انسٹال کر کے آپ کا کوڈ درج کریں گے۔</p>
-                  <p>3️⃣ آپ کے والٹ میں فوری <strong>PKR {rewardAmount}</strong> کا کیش انعام شامل ہو جائے گا جسے آپ EasyPaisa یا JazzCash میں نکلوا سکتے ہیں۔</p>
+                  <p>1️⃣ Share your referral code or direct link with friends and colleagues.</p>
+                  <p>2️⃣ They install the app and enter your referral code upon signing up.</p>
+                  <p>3️⃣ Your wallet is credited instantly with <strong>PKR {rewardAmount}</strong>, withdrawable via EasyPaisa, JazzCash, or Bank.</p>
                 </div>
               </div>
             </div>
@@ -347,13 +347,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             <div className="space-y-4">
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 text-emerald-950">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold">آپ کا دستیاب انعام</span>
+                  <span className="text-xs font-bold">Available Balance</span>
                   <span className="text-lg font-black text-emerald-700">
                     PKR {availableBalance.toLocaleString()}
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800 mt-1">
-                  آپ کم از کم PKR {rewardAmount} کا کیش انعام EasyPaisa، JazzCash یا بینک اکاؤنٹ میں حاصل کر سکتے ہیں۔
+                  You can withdraw rewards directly to your EasyPaisa, JazzCash, or Bank Account.
                 </p>
               </div>
 
@@ -374,15 +374,15 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               {availableBalance <= 0 ? (
                 <div className="text-center py-6 px-4 bg-stone-50 rounded-2xl border border-stone-200">
                   <Wallet className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-                  <p className="font-bold text-xs text-stone-700">اس وقت نکالنے کے لیے کوئی بیلنس موجود نہیں ہے</p>
+                  <p className="font-bold text-xs text-stone-700">No balance available for withdrawal currently</p>
                   <p className="text-[11px] text-stone-500 mt-1">
-                    مزید دوستوں کو اپنا ریفرل لنک شیئر کریں اور کیش انعام کمائیں۔
+                    Share your referral link with friends to start earning instant rewards.
                   </p>
                   <button
                     onClick={() => setActiveSubTab('share')}
                     className="mt-3 px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
                   >
-                    ریفرل لنک شیئر کریں &rarr;
+                    Share Referral Link &rarr;
                   </button>
                 </div>
               ) : (
@@ -390,7 +390,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                   {/* Select Payment Method */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                      ادائیگی کا طریقہ (Payment Method)
+                      Payment Method
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
@@ -435,7 +435,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                   {/* Amount to withdraw */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      رقم (Withdrawal Amount in PKR)
+                      Withdrawal Amount (PKR)
                     </label>
                     <input
                       type="number"
@@ -451,12 +451,12 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                   {/* Account Title */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      اکاؤنٹ ٹائٹل / اکاؤنٹ ہولڈر کا نام (Account Title)
+                      Account Title / Beneficiary Name
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Ahmed Khan"
+                      placeholder="e.g. Muhammad Asad"
                       value={accountTitle}
                       onChange={(e) => setAccountTitle(e.target.value)}
                       className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs font-bold text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
@@ -466,12 +466,12 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                   {/* Account / Mobile Number */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      {paymentMethod === 'bank' ? 'بینک اکاؤنٹ یا IBAN نمبر' : 'موبائل اکاؤنٹ نمبر (e.g. 03001234567)'}
+                      {paymentMethod === 'bank' ? 'Bank Account or IBAN Number' : 'Mobile Account Number (e.g. 03001234567)'}
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder={paymentMethod === 'bank' ? 'PK00BANK...' : '03001234567'}
+                      placeholder={paymentMethod === 'bank' ? 'PK00MEZN000...' : '03001234567'}
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
                       className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs font-mono font-bold text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
@@ -481,7 +481,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                   {paymentMethod === 'bank' && (
                     <div>
                       <label className="block text-xs font-bold text-stone-700 mb-1">
-                        بینک کا نام (Bank Name)
+                        Bank Name
                       </label>
                       <input
                         type="text"
@@ -497,7 +497,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     type="submit"
                     className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-xs shadow-md active:scale-95 transition"
                   >
-                    کیش انعام کی درخواست بھیجیں (Submit Payout Request)
+                    Submit Withdrawal Request
                   </button>
                 </form>
               )}
@@ -506,7 +506,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               {myPayouts.length > 0 && (
                 <div className="pt-3 border-t border-stone-200">
                   <span className="text-[11px] font-bold text-stone-500 uppercase block mb-2">
-                    آپ کی سابقہ کیش ادائیگی کی درخواستیں
+                    Your Past Payout Requests
                   </span>
                   <div className="space-y-1.5">
                     {myPayouts.map((p) => (
@@ -531,7 +531,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                               : 'bg-amber-100 text-amber-800'
                           }`}
                         >
-                          {p.status === 'paid' ? 'ادا ہو گیا' : p.status === 'rejected' ? 'مسترد' : 'پینڈنگ'}
+                          {p.status === 'paid' ? 'Paid' : p.status === 'rejected' ? 'Rejected' : 'Pending'}
                         </span>
                       </div>
                     ))}
@@ -546,7 +546,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-stone-700">
-                  آپ کے ریفرل سے جوائن کرنے والے دوست
+                  Friends Joined via Your Referral
                 </span>
                 <span className="text-xs font-mono font-bold text-stone-500">
                   Total: {myReferrals.length}
@@ -556,15 +556,15 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               {myReferrals.length === 0 ? (
                 <div className="text-center py-8 bg-stone-50 rounded-2xl border border-stone-200">
                   <Users className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-                  <p className="font-bold text-xs text-stone-700">ابھی تک کسی دوست نے جوائن نہیں کیا</p>
+                  <p className="font-bold text-xs text-stone-700">No referrals yet</p>
                   <p className="text-[11px] text-stone-500 mt-1">
-                    اپنا ریفرل لنک واٹس ایپ پر شیئر کریں اور انعامات حاصل کریں۔
+                    Share your referral link on WhatsApp to start earning cash rewards.
                   </p>
                   <button
                     onClick={() => setActiveSubTab('share')}
                     className="mt-3 px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
                   >
-                    لنک شیئر کریں
+                    Share Link Now
                   </button>
                 </div>
               ) : (
@@ -604,13 +604,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
         {/* Modal Footer */}
         <div className="bg-stone-50 p-3 px-5 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500 shrink-0">
           <span className="text-[11px]">
-            K&amp;S Solar Energy • ہیڈ آفس کیش انعام پروگرام
+            K&amp;S Solar Energy • Rewards Program
           </span>
           <button
             onClick={onClose}
             className="px-3.5 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs transition"
           >
-            بند کریں (Close)
+            Close
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   Plus,
   Minus,
   ArrowRight,
+  ArrowLeft,
   MessageCircle,
 } from 'lucide-react';
 import { Booking, PanelType, PreferredTime, UserProfile } from '../types';
@@ -18,6 +19,7 @@ interface MobileBookWashProps {
   user: UserProfile;
   onBookingCreated: (booking: Booking) => void;
   onNavigateHome: () => void;
+  onNavigateBack?: () => void;
   whatsappNumber: string;
 }
 
@@ -25,6 +27,7 @@ export const MobileBookWash: React.FC<MobileBookWashProps> = ({
   user,
   onBookingCreated,
   onNavigateHome,
+  onNavigateBack,
   whatsappNumber,
 }) => {
   const [panelCount, setPanelCount] = useState<number>(18);
@@ -138,19 +141,29 @@ export const MobileBookWash: React.FC<MobileBookWashProps> = ({
 
   return (
     <div className="p-4 space-y-5 pb-24">
-      {/* Title */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-extrabold text-stone-900 flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-amber-500" />
-            Book Panel Washing
-          </h2>
-          <p className="text-xs text-stone-500">
-            Professional de-mineralized solar panel pressure wash
-          </p>
+      {/* Title Bar with Back Arrow */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onNavigateBack || onNavigateHome}
+            title="Go Back"
+            className="w-9 h-9 rounded-xl bg-white border border-stone-200/90 shadow-2xs flex items-center justify-center text-stone-700 hover:text-stone-900 active:scale-95 transition shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+          </button>
+          <div>
+            <h2 className="text-lg font-extrabold text-stone-900 flex items-center gap-2">
+              <Droplets className="w-5 h-5 text-amber-500" />
+              Book Panel Washing
+            </h2>
+            <p className="text-xs text-stone-500">
+              Professional de-mineralized solar panel pressure wash
+            </p>
+          </div>
         </div>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-          City: {user.city}
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+          {user.city}
         </span>
       </div>
 

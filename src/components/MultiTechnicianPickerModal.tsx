@@ -121,7 +121,7 @@ export const MultiTechnicianPickerModal: React.FC<MultiTechnicianPickerModalProp
           <div className="bg-[#0b2840] border border-[#1b5585] rounded-2xl p-3 flex items-start gap-2.5 text-xs text-sky-200">
             <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-relaxed">
-              <span className="font-bold text-white">Multiple Technicians (ٹیم / عملہ):</span> You can assign 1, 2, or more technicians together for large solar installations, multi-string washing, or complex inverter troubleshooting. Each assigned tech will see this task in their field roster.
+              <span className="font-bold text-white">Multiple Technicians (Field Crew):</span> You can assign 1, 2, or more technicians together for large solar installations, multi-string washing, or complex inverter troubleshooting. Each assigned tech will see this task in their field roster.
             </div>
           </div>
 
@@ -218,7 +218,7 @@ export const MultiTechnicianPickerModal: React.FC<MultiTechnicianPickerModalProp
           {/* Dispatch Notes / Instructions */}
           <div className="space-y-1">
             <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
-              <span>Crew Instructions / Notes (اختیاری)</span>
+              <span>Crew Instructions / Notes (Optional)</span>
               <span className="text-[10px] text-slate-400">Tools, safety, address notes</span>
             </label>
             <textarea

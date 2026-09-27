@@ -1,11 +1,54 @@
 {
   "expo": {
-    "android": {
-      "package": "com.knssolar.app"
+    "name": "K&S Solar Energy",
+    "slug": "kns-solar-energy",
+    "version": "1.0.31",
+    "platforms": ["android"],
+    "orientation": "portrait",
+    "icon": "./public/ks-solar-logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./public/ks-solar-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a2e4c"
     },
+    "android": {
+      "package": "com.knssolar.app",
+      "versionCode": 31,
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./public/ks-solar-logo.png",
+        "backgroundColor": "#0a2e4c"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow K&S Solar Energy to track technician location in real time 24/7 even when the app is closed or phone is locked.",
+          "locationAlwaysPermission": "Allow K&S Solar Energy 24/7 background location tracking for real-time dispatch and fleet safety.",
+          "locationWhenInUsePermission": "Allow K&S Solar Energy to access device location.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
     "extra": {
       "eas": {
-        "projectId": "f2faefa5-6785-4fb3-9b94-b7d8f8383b03"
+        "projectId": "68584185-75da-43b2-b540-79775178d933"
       }
     }
   }

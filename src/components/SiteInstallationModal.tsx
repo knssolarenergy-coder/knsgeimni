@@ -91,42 +91,36 @@ export const SiteInstallationModal: React.FC<SiteInstallationModalProps> = ({
         {
           id: 'm1',
           title: 'Site Shadow & Structural Survey',
-          titleUrdu: 'سائٹ اور شیڈو سروے',
           description: 'Engineer site inspection, shadow analysis & roof stability test.',
           status: 'pending',
         },
         {
           id: 'm2',
           title: 'Custom Galvanized Structure Mounting',
-          titleUrdu: 'گیلوینائزڈ سٹرکچر کی تنصیب',
           description: 'Heavy duty elevated or flush structure mounting.',
           status: 'pending',
         },
         {
           id: 'm3',
           title: 'Solar Panels Clamping & DC Stringing',
-          titleUrdu: 'سولر پینلز کلکپنگ اور سٹرنگ وائرنگ',
           description: 'Tier-1 bifacial panels installation & 6mm solar cabling.',
           status: 'pending',
         },
         {
           id: 'm4',
           title: 'Inverter, Battery ESS & AC/DC DB Setup',
-          titleUrdu: 'انورٹر اور ڈسٹری بیوشن باکس وائرنگ',
           description: 'Class-1 SPDs, ATS, and inverter connection.',
           status: 'pending',
         },
         {
           id: 'm5',
           title: 'Copper Earth Pit & Surge Testing (<5 Ohm)',
-          titleUrdu: 'ارتھنگ بور اور ٹیسٹنگ',
           description: 'Dual chemical earth pits & resistance testing.',
           status: 'pending',
         },
         {
           id: 'm6',
           title: 'DisCo Net-Metering Commissioning',
-          titleUrdu: 'گرین میٹر اور سسٹم چالو کرنا',
           description: 'DisCo green meter energization & handover.',
           status: 'pending',
         },
@@ -165,7 +159,7 @@ export const SiteInstallationModal: React.FC<SiteInstallationModalProps> = ({
                   New Solar Site Installation
                 </h3>
                 <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950">
-                  سولر سیٹ اپ
+                  Solar Setup
                 </span>
               </div>
               <p className="text-[11px] text-sky-200 font-medium">
@@ -415,7 +409,7 @@ export const SiteInstallationModal: React.FC<SiteInstallationModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-300">Site Notes (اختیاری)</label>
+                <label className="text-[11px] font-bold text-slate-300">Site Notes (Optional)</label>
                 <textarea
                   rows={2}
                   value={notes}

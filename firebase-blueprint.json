@@ -1,0 +1,164 @@
+{
+  "entities": {
+    "AuthAccount": {
+      "title": "AuthAccount",
+      "description": "User authentication and profile entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "technician", "customer"] },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "city": { "type": "string" },
+        "approvalStatus": { "type": "string", "enum": ["approved", "pending", "rejected", "suspended"] },
+        "technicianId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "role"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Solar panel washing booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "panelCount": { "type": "number" },
+        "capacityKw": { "type": "number" },
+        "serviceType": { "type": "string" },
+        "preferredDate": { "type": "string" },
+        "preferredTime": { "type": "string" },
+        "status": { "type": "string" },
+        "assignedTechnicianId": { "type": "string" },
+        "assignedTechnicianName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "customerName", "phone", "city", "status"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Solar technical complaint or service issue",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "systemType": { "type": "string" },
+        "capacity": { "type": "string" },
+        "inverterBrand": { "type": "string" },
+        "issueType": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "assignedTechnicianId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "customerName", "phone", "status"]
+    },
+    "QuoteRequest": {
+      "title": "QuoteRequest",
+      "description": "Custom solar EPC or survey quote request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "systemCapacity": { "type": "string" },
+        "monthlyBill": { "type": "string" },
+        "systemType": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "customerName", "phone", "status"]
+    },
+    "Technician": {
+      "title": "Technician",
+      "description": "Field technician staff profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "city": { "type": "string" },
+        "specialty": { "type": "string" },
+        "status": { "type": "string" },
+        "rating": { "type": "number" },
+        "completedJobsCount": { "type": "number" },
+        "activeJobsCount": { "type": "number" },
+        "joinedDate": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "specialty"]
+    },
+    "Warranty": {
+      "title": "Warranty",
+      "description": "Customer solar equipment warranty record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "productName": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "capacity": { "type": "string" },
+        "category": { "type": "string" },
+        "purchaseDate": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "status": { "type": "string" },
+        "warrantyYears": { "type": "number" },
+        "certificateNumber": { "type": "string" }
+      },
+      "required": ["id", "customerName", "phone", "productName", "expiryDate"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Company operational configuration",
+      "type": "object",
+      "properties": {
+        "company_name": { "type": "string" },
+        "phone_primary": { "type": "string" },
+        "whatsapp_booking": { "type": "string" },
+        "email_official": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/accounts/{accountId}": {
+      "schema": "AuthAccount",
+      "description": "User, staff, and admin accounts"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Washing service bookings"
+    },
+    "/complaints/{complaintId}": {
+      "schema": "Complaint",
+      "description": "Technical complaints and faults"
+    },
+    "/quotes/{quoteId}": {
+      "schema": "QuoteRequest",
+      "description": "Solar EPC and survey requests"
+    },
+    "/technicians/{technicianId}": {
+      "schema": "Technician",
+      "description": "Technician records"
+    },
+    "/warranties/{warrantyId}": {
+      "schema": "Warranty",
+      "description": "Customer warranties"
+    },
+    "/settings/main": {
+      "schema": "AppSettings",
+      "description": "Global application configuration"
+    }
+  }
+}

@@ -1,19 +1,145 @@
 import { RouteBreadcrumb, TechnicianLiveLocation, TechTrackingStatus } from '../types';
 import { INITIAL_TRACKING_DATA } from '../data/trackingData';
+import { db } from './firebase';
+import { collection, doc, onSnapshot, setDoc, Unsubscribe } from 'firebase/firestore';
 
 const TRACKING_STORAGE_KEY = 'ks_solar_tech_tracking_v1';
-const SIMULATION_ACTIVE_KEY = 'ks_solar_tech_sim_active_v1';
 
 type TrackingListener = (locations: Record<string, TechnicianLiveLocation>) => void;
 
+export interface TechConnectionStatus {
+  isOnline: boolean;
+  isWeakSignal: boolean;
+  statusLabel: 'LIVE (Online)' | 'Signal Delayed' | 'OFFLINE (Disconnected)' | 'No GPS Signal';
+  badgeClass: string;
+  dotColor: string;
+  elapsedSeconds: number;
+  timeAgoText: string;
+  lastContactTime: string;
+}
+
+export function getTechConnectionStatus(tech?: Partial<TechnicianLiveLocation>): TechConnectionStatus {
+  if (!tech || !tech.lastPing) {
+    return {
+      isOnline: false,
+      isWeakSignal: false,
+      statusLabel: 'No GPS Signal',
+      badgeClass: 'bg-stone-100 text-stone-600 border-stone-200',
+      dotColor: 'bg-stone-400',
+      elapsedSeconds: Infinity,
+      timeAgoText: 'Never connected',
+      lastContactTime: 'Never',
+    };
+  }
+
+  const pingTime = new Date(tech.lastPing).getTime();
+  const now = Date.now();
+  const elapsedSeconds = Math.max(0, Math.floor((now - pingTime) / 1000));
+
+  const lastContactTime = new Date(tech.lastPing).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  // Real-time ping within last 15 seconds = Active Live
+  if (elapsedSeconds <= 15) {
+    return {
+      isOnline: true,
+      isWeakSignal: false,
+      statusLabel: 'LIVE (Online)',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      dotColor: 'bg-emerald-500 animate-pulse',
+      elapsedSeconds,
+      timeAgoText: elapsedSeconds <= 2 ? 'Active right now' : `${elapsedSeconds}s ago`,
+      lastContactTime,
+    };
+  }
+
+  // Ping between 15s and 60s = Signal Delayed
+  if (elapsedSeconds <= 60) {
+    return {
+      isOnline: true,
+      isWeakSignal: true,
+      statusLabel: 'Signal Delayed',
+      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      dotColor: 'bg-amber-500',
+      elapsedSeconds,
+      timeAgoText: `${elapsedSeconds}s ago`,
+      lastContactTime,
+    };
+  }
+
+  // Ping > 60s = OFFLINE / DISCONNECTED
+  let timeAgoText = '';
+  if (elapsedSeconds < 3600) {
+    const mins = Math.floor(elapsedSeconds / 60);
+    timeAgoText = `${mins} min${mins === 1 ? '' : 's'} ago`;
+  } else if (elapsedSeconds < 86400) {
+    const hours = Math.floor(elapsedSeconds / 3600);
+    timeAgoText = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  } else {
+    const days = Math.floor(elapsedSeconds / 86400);
+    timeAgoText = `${days} day${days === 1 ? '' : 's'} ago`;
+  }
+
+  return {
+    isOnline: false,
+    isWeakSignal: false,
+    statusLabel: 'OFFLINE (Disconnected)',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+    dotColor: 'bg-rose-500',
+    elapsedSeconds,
+    timeAgoText: `Offline since ${timeAgoText}`,
+    lastContactTime,
+  };
+}
+
 class TrackingServiceClass {
   private listeners: Set<TrackingListener> = new Set();
-  private simulationInterval: number | null = null;
   private watchPositionId: number | null = null;
+  private unsubscribeFirestore: Unsubscribe | null = null;
 
   constructor() {
-    // Start simulation by default so admin preview is active immediately
-    this.startBackgroundSimulation();
+    this.initFirestoreListener();
+  }
+
+  private initFirestoreListener() {
+    try {
+      const colRef = collection(db, 'tech_locations');
+      this.unsubscribeFirestore = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const current = this.getLocations();
+          let hasChanges = false;
+
+          snapshot.docs.forEach((docSnap) => {
+            const data = docSnap.data() as TechnicianLiveLocation;
+            if (data && data.technicianId) {
+              current[data.technicianId] = {
+                ...(current[data.technicianId] || {}),
+                ...data,
+              };
+              hasChanges = true;
+            }
+          });
+
+          if (hasChanges) {
+            try {
+              localStorage.setItem(TRACKING_STORAGE_KEY, JSON.stringify(current));
+            } catch {
+              // ignore
+            }
+            this.notifyListeners(current);
+          }
+        },
+        (err) => {
+          console.warn('[TrackingService] Live Firestore subscription note:', err.message);
+        }
+      );
+    } catch (e) {
+      console.warn('[TrackingService] Could not initialize Firestore listener:', e);
+    }
   }
 
   public getLocations(): Record<string, TechnicianLiveLocation> {
@@ -25,8 +151,7 @@ class TrackingServiceClass {
     } catch {
       // fallback
     }
-    this.saveLocations(INITIAL_TRACKING_DATA);
-    return INITIAL_TRACKING_DATA;
+    return { ...INITIAL_TRACKING_DATA };
   }
 
   public getLocation(techId: string): TechnicianLiveLocation | undefined {
@@ -46,19 +171,46 @@ class TrackingServiceClass {
   public updateTechLocation(
     techId: string,
     updates: Partial<TechnicianLiveLocation>
-  ): TechnicianLiveLocation | null {
+  ): TechnicianLiveLocation {
     const all = this.getLocations();
-    const current = all[techId];
-    if (!current) return null;
+    const current = all[techId] || {
+      technicianId: techId,
+      technicianName: 'Technician',
+      phone: '',
+      city: 'Bhakkar',
+      lat: 31.6253,
+      lng: 71.0657,
+      speedKmh: 0,
+      heading: 0,
+      status: 'idle',
+      vehicle: 'bike',
+      distanceRemainingKm: 0,
+      etaMinutes: 0,
+      lastPing: new Date().toISOString(),
+      isLiveBeaconActive: true,
+      routeHistory: [],
+    };
 
     const updated: TechnicianLiveLocation = {
       ...current,
       ...updates,
+      technicianId: techId,
       lastPing: new Date().toISOString(),
     };
 
     all[techId] = updated;
     this.saveLocations(all);
+
+    // Sync to Cloud Firestore in real-time
+    try {
+      const docRef = doc(db, 'tech_locations', techId);
+      setDoc(docRef, updated, { merge: true }).catch((err) => {
+        console.warn('[TrackingService] Firestore sync warning:', err);
+      });
+    } catch (err) {
+      console.warn('[TrackingService] Firestore update error:', err);
+    }
+
     return updated;
   }
 
@@ -67,25 +219,23 @@ class TrackingServiceClass {
     const tech = all[techId];
     if (!tech) return false;
 
-    // Enforce 24/7 Live Tracking: Technicians CANNOT turn off location
     tech.isLiveBeaconActive = true;
     tech.is24hTrackingEnforced = true;
     tech.isLocationLockActive = true;
     tech.lastHeartbeat = new Date().toISOString();
     tech.lastPing = new Date().toISOString();
-    
+
     if (tech.status === 'offline') {
       tech.status = tech.distanceRemainingKm && tech.distanceRemainingKm > 0.1 ? 'moving' : 'at_customer';
     }
 
-    all[techId] = tech;
-    this.saveLocations(all);
-    return true; // always active
+    this.updateTechLocation(techId, tech);
+    return true;
   }
 
   public subscribe(listener: TrackingListener): () => void {
     this.listeners.add(listener);
-    // immediately call with current data
+    // immediately call with current real data
     listener(this.getLocations());
     return () => {
       this.listeners.delete(listener);
@@ -102,7 +252,7 @@ class TrackingServiceClass {
     });
   }
 
-  // Real Geolocation integration for mobile tech device
+  // Real Geolocation watch on physical technician device
   public startDeviceGeolocation(
     techId: string,
     onSuccess?: (coords: { lat: number; lng: number }) => void,
@@ -117,7 +267,7 @@ class TrackingServiceClass {
     this.watchPositionId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, speed, heading } = position.coords;
-        const currentSpeedKmh = speed ? Math.round(speed * 3.6) : 25;
+        const currentSpeedKmh = speed ? Math.round(speed * 3.6) : 0;
         this.updateTechLocation(techId, {
           lat: latitude,
           lng: longitude,
@@ -136,8 +286,8 @@ class TrackingServiceClass {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 10000,
-        timeout: 20000,
+        maximumAge: 0,
+        timeout: 10000,
       }
     );
   }
@@ -149,97 +299,9 @@ class TrackingServiceClass {
     }
   }
 
-  // Realistic movement simulation for testing and admin dispatch view
-  public startBackgroundSimulation() {
-    if (this.simulationInterval) return;
-
-    // Run tick every 3.5 seconds
-    this.simulationInterval = window.setInterval(() => {
-      this.stepSimulation();
-    }, 3500);
-  }
-
-  public stopBackgroundSimulation() {
-    if (this.simulationInterval) {
-      clearInterval(this.simulationInterval);
-      this.simulationInterval = null;
-    }
-  }
-
-  public isSimulationActive(): boolean {
-    return this.simulationInterval !== null;
-  }
-
-  public stepSimulation() {
-    const all = this.getLocations();
-    let hasChanges = false;
-
-    // Simulate Tech 1 (Usman in Lahore) & Tech 3 (Tariq in Islamabad) & Tech 4 (Hamza in Karachi)
-    Object.keys(all).forEach((techId) => {
-      const tech = all[techId];
-      if (!tech || !tech.isLiveBeaconActive || tech.status === 'offline') return;
-
-      // Only move if status is moving and has a destination
-      if (tech.status === 'moving' && tech.destinationLat && tech.destinationLng) {
-        // Calculate vector towards destination
-        const dLat = tech.destinationLat - tech.lat;
-        const dLng = tech.destinationLng - tech.lng;
-        const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-
-        if (dist > 0.0008) {
-          // Move 2-5% towards target per tick
-          const stepFactor = 0.035;
-          const nextLat = tech.lat + dLat * stepFactor + (Math.random() - 0.5) * 0.0001;
-          const nextLng = tech.lng + dLng * stepFactor + (Math.random() - 0.5) * 0.0001;
-          const nextDistKm = Math.max(0.1, (tech.distanceRemainingKm || 2) - 0.15);
-          const nextSpeed = Math.floor(28 + Math.random() * 16);
-          const nextEta = Math.max(1, Math.round(nextDistKm / (nextSpeed / 60)));
-
-          tech.lat = parseFloat(nextLat.toFixed(6));
-          tech.lng = parseFloat(nextLng.toFixed(6));
-          tech.speedKmh = nextSpeed;
-          tech.distanceRemainingKm = parseFloat(nextDistKm.toFixed(1));
-          tech.etaMinutes = nextEta;
-          tech.lastPing = new Date().toISOString();
-          hasChanges = true;
-        } else {
-          // Arrived at destination customer!
-          tech.status = 'at_customer';
-          tech.speedKmh = 0;
-          tech.distanceRemainingKm = 0;
-          tech.etaMinutes = 0;
-          tech.address = `${tech.destinationAddress || 'Customer Site'} (On Site)`;
-          hasChanges = true;
-
-          // Add arrived breadcrumb if not present
-          const hasArrived = tech.routeHistory.some((b) => b.type === 'destination' && b.status?.includes('Arrived'));
-          if (!hasArrived) {
-            tech.routeHistory.push({
-              id: `bp-${tech.technicianId}-arrived`,
-              lat: tech.lat,
-              lng: tech.lng,
-              label: `Arrived at ${tech.destinationCustomer || 'Customer'}`,
-              address: tech.destinationAddress || 'Customer Site',
-              time: 'Just Now',
-              type: 'stop',
-              status: 'Technician reached customer location. Commenced job.',
-            });
-          }
-        }
-      } else if (tech.status === 'at_customer') {
-        // slight jitter / working ping
-        tech.lastPing = new Date().toISOString();
-      }
-    });
-
-    if (hasChanges) {
-      this.saveLocations(all);
-    }
-  }
-
-  // Reset simulation back to initial points
+  // Reset: clear storage so only real live data is collected
   public resetToDefault() {
-    this.saveLocations(INITIAL_TRACKING_DATA);
+    this.saveLocations({});
   }
 }
 

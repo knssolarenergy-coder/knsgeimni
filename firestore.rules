@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Accounts collection
+    match /accounts/{accountId} {
+      allow read, write: if true;
+    }
+    
+    // Bookings collection
+    match /bookings/{bookingId} {
+      allow read, write: if true;
+    }
+    
+    // Complaints collection
+    match /complaints/{complaintId} {
+      allow read, write: if true;
+    }
+    
+    // Quotes collection
+    match /quotes/{quoteId} {
+      allow read, write: if true;
+    }
+    
+    // Technicians collection
+    match /technicians/{technicianId} {
+      allow read, write: if true;
+    }
+    
+    // Warranties collection
+    match /warranties/{warrantyId} {
+      allow read, write: if true;
+    }
+    
+    // Working sites collection
+    match /workingSites/{siteId} {
+      allow read, write: if true;
+    }
+    
+    // Attendance collection
+    match /attendance/{recordId} {
+      allow read, write: if true;
+    }
+    
+    // Live technician telemetry locations
+    match /tech_locations/{techId} {
+      allow read, write: if true;
+    }
+    
+    // Settings document
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+    
+    // Trash / Recycle bin collection
+    match /trash/{trashId} {
+      allow read, write: if true;
+    }
+    
+    // Test collection for initial health check
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

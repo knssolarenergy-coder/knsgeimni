@@ -26,6 +26,7 @@ interface SolarInstallationScreenProps {
   user: UserProfile;
   onQuoteCreated: (quote: QuoteRequest) => void;
   onNavigateHome: () => void;
+  onNavigateBack?: () => void;
   onNavigateMyOrders?: () => void;
   whatsappNumber: string;
 }
@@ -34,6 +35,7 @@ export const SolarInstallationScreen: React.FC<SolarInstallationScreenProps> = (
   user,
   onQuoteCreated,
   onNavigateHome,
+  onNavigateBack,
   onNavigateMyOrders,
   whatsappNumber,
 }) => {
@@ -176,7 +178,7 @@ export const SolarInstallationScreen: React.FC<SolarInstallationScreenProps> = (
             {step === 1 && (
               <button
                 type="button"
-                onClick={onNavigateHome}
+                onClick={onNavigateBack || onNavigateHome}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
               >
                 <ArrowLeft className="w-4 h-4" />

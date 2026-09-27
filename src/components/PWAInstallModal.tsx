@@ -57,7 +57,7 @@ export const PWAInstallModal: React.FC<{ isOpen: boolean; onClose: () => void }>
           <div className="flex items-center gap-3 bg-amber-50 p-3.5 rounded-xl border border-amber-200/80 text-amber-950">
             <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
             <p className="text-xs leading-relaxed font-medium">
-              Yeh app direct aapke phone ki home screen par <strong>Native Mobile App</strong> ki tarah install hoti hai — baghair Play Store ke.
+              This app can be installed directly onto your mobile home screen as a <strong>Native Mobile App</strong> with offline capabilities.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export const PWAInstallModal: React.FC<{ isOpen: boolean; onClose: () => void }>
               </button>
             ) : (
               <p className="text-xs text-stone-600 leading-relaxed">
-                Browser ke top right corner mein <strong>three dots (⋮)</strong> par click karein aur <strong>&quot;Install app&quot;</strong> ya <strong>&quot;Add to Home screen&quot;</strong> choose karein.
+                Click the <strong>three dots menu (⋮)</strong> in your browser and select <strong>&quot;Install App&quot;</strong> or <strong>&quot;Add to Home Screen&quot;</strong>.
               </p>
             )}
           </div>
@@ -112,13 +112,13 @@ export const PWAInstallModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             </span>
             <div className="text-xs text-stone-600 space-y-1.5 pl-8">
               <p className="flex items-center gap-1.5">
-                • Safari browser ke bottom toolbar mein <strong>Share</strong> (<Share2 className="w-3.5 h-3.5 inline text-blue-600" />) icon dabayein.
+                • Tap the <strong>Share</strong> (<Share2 className="w-3.5 h-3.5 inline text-blue-600" />) icon in the bottom Safari toolbar.
               </p>
               <p>
-                • Niche scroll karke <strong>&quot;Add to Home Screen&quot;</strong> select karein.
+                • Scroll down and tap <strong>&quot;Add to Home Screen&quot;</strong>.
               </p>
               <p>
-                • Top-right mein <strong>&quot;Add&quot;</strong> dabayein. K&amp;S Solar Energy icon aapke phone par show ho jayega!
+                • Tap <strong>&quot;Add&quot;</strong> in the top-right corner. The K&amp;S Solar Energy app icon will appear on your screen!
               </p>
             </div>
           </div>
@@ -130,7 +130,7 @@ export const PWAInstallModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-stone-700 hover:text-stone-950 transition"
           >
-            Theek hai, Samajh Gaya
+            Got It
           </button>
         </div>
       </div>

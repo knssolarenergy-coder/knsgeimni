@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { ExternalLink, CheckCircle2, Search, Activity, ShieldCheck, Info } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Search, Activity, ShieldCheck, Info, ArrowLeft } from 'lucide-react';
 import { INVERTER_BRANDS } from '../data/mockData';
 
-export const InverterSection: React.FC = () => {
+interface InverterSectionProps {
+  onNavigateBack?: () => void;
+}
+
+export const InverterSection: React.FC<InverterSectionProps> = ({ onNavigateBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredBrands = INVERTER_BRANDS.filter((brand) =>
@@ -14,14 +18,26 @@ export const InverterSection: React.FC = () => {
     <div className="p-4 space-y-4 pb-24">
       {/* Header & Search */}
       <div className="space-y-3">
-        <div>
-          <h2 className="text-lg font-extrabold text-stone-900 tracking-tight flex items-center gap-2">
-            <Activity className="w-5 h-5 text-emerald-600" />
-            Inverter Monitoring Portals
-          </h2>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Real-time telemetry, inverter yield, and alarm diagnostics.
-          </p>
+        <div className="flex items-center gap-2.5">
+          {onNavigateBack && (
+            <button
+              type="button"
+              onClick={onNavigateBack}
+              title="Go Back"
+              className="w-9 h-9 rounded-xl bg-white border border-stone-200/90 shadow-2xs flex items-center justify-center text-stone-700 hover:text-stone-900 active:scale-95 transition shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          )}
+          <div>
+            <h2 className="text-lg font-extrabold text-stone-900 tracking-tight flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-600" />
+              Inverter Monitoring Portals
+            </h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Real-time telemetry, inverter yield, and alarm diagnostics.
+            </p>
+          </div>
         </div>
 
         {/* Search */}

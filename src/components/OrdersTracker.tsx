@@ -14,10 +14,25 @@ import {
   Plus,
   Shield,
   Zap,
+  ArrowLeft,
 } from 'lucide-react';
-import { Booking, BookingStatus, Complaint, ComplaintStatus, QuoteRequest, QuoteStatus } from '../types';
+import {
+  Booking,
+  BookingStatus,
+  Complaint,
+  ComplaintStatus,
+  QuoteRequest,
+  QuoteStatus,
+  UserProfile,
+} from '../types';
+import {
+  filterUserBookings,
+  filterUserComplaints,
+  filterUserQuotes,
+} from '../utils/userFilter';
 
 interface OrdersTrackerProps {
+  user?: UserProfile | null;
   bookings: Booking[];
   complaints?: Complaint[];
   quotes?: QuoteRequest[];
@@ -25,10 +40,13 @@ interface OrdersTrackerProps {
   onOpenBookingModal: () => void;
   onOpenComplaintModal?: () => void;
   onOpenQuoteModal?: () => void;
+  onNavigateBack?: () => void;
+  onRequestSignIn?: () => void;
   whatsappNumber: string;
 }
 
 export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
+  user,
   bookings = [],
   complaints = [],
   quotes = [],
@@ -36,9 +54,11 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
   onOpenBookingModal,
   onOpenComplaintModal,
   onOpenQuoteModal,
+  onNavigateBack,
+  onRequestSignIn,
   whatsappNumber,
 }) => {
-  // Top Segment Tabs: 'bookings' | 'complaints' | 'quotes' (Matches Screenshots 1, 2, 3)
+  // Top Segment Tabs: 'bookings' | 'complaints' | 'quotes'
   const [activeSegment, setActiveSegment] = useState<'bookings' | 'complaints' | 'quotes'>('bookings');
 
   // Sub-filters for each segment
@@ -46,14 +66,21 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
   const [complaintFilter, setComplaintFilter] = useState<'all' | 'submitted' | 'in_progress' | 'resolved'>('all');
   const [quoteFilter, setQuoteFilter] = useState<'all' | 'submitted' | 'under_review' | 'quote_sent'>('all');
 
+  const isGuest = !user || user.id === 'guest';
+
+  // Strictly filter records for the current user (only admin can see all)
+  const myBookings = isGuest ? [] : filterUserBookings(bookings, user);
+  const myComplaints = isGuest ? [] : filterUserComplaints(complaints, user);
+  const myQuotes = isGuest ? [] : filterUserQuotes(quotes, user);
+
   // Filtered Bookings
-  const filteredBookings = bookings.filter((b) => {
+  const filteredBookings = myBookings.filter((b) => {
     if (bookingFilter === 'all') return true;
     return b.status === bookingFilter;
   });
 
-  // Filtered Complaints
-  const filteredComplaints = complaints.filter((c) => {
+  // Filtered Complaints (Customer only sees their own complaints)
+  const filteredComplaints = myComplaints.filter((c) => {
     if (complaintFilter === 'all') return true;
     if (complaintFilter === 'submitted') return c.status === 'pending';
     if (complaintFilter === 'in_progress') return c.status === 'in_progress' || c.status === 'assigned';
@@ -62,7 +89,7 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
   });
 
   // Filtered Quotes
-  const filteredQuotes = quotes.filter((q) => {
+  const filteredQuotes = myQuotes.filter((q) => {
     if (quoteFilter === 'all') return true;
     if (quoteFilter === 'submitted') return q.status === 'pending';
     if (quoteFilter === 'under_review') return q.status === 'reviewed';
@@ -78,12 +105,26 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
 
   return (
     <div className="bg-slate-50 min-h-screen text-slate-800 pb-28">
-      {/* Top Teal Header Banner (Exactly matches Screenshots 1, 2, 3) */}
+      {/* Top Teal Header Banner */}
       <div className="bg-[#0096aa] text-white pt-4 pb-4 px-4 shadow-sm">
-        <h1 className="text-2xl font-black tracking-tight text-white mb-0.5">My Orders</h1>
-        <p className="text-xs text-white/85 font-medium mb-3.5">
-          Track your bookings, complaints &amp; quotes
-        </p>
+        <div className="flex items-center gap-2.5 mb-3">
+          {onNavigateBack && (
+            <button
+              type="button"
+              onClick={onNavigateBack}
+              title="Go Back"
+              className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 text-white flex items-center justify-center active:scale-95 transition shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white mb-0.5">My Orders</h1>
+            <p className="text-xs text-white/85 font-medium">
+              Track your bookings, complaints &amp; quotes
+            </p>
+          </div>
+        </div>
 
         {/* 3 Segments Pill Selector (Capsule container) */}
         <div className="bg-black/15 p-1 rounded-2xl flex items-center justify-between gap-1 border border-white/20">
@@ -98,7 +139,7 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Bookings ({bookings.length})</span>
+            <span>Bookings ({myBookings.length})</span>
           </button>
 
           {/* Segment 2: Complaints */}
@@ -112,7 +153,7 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
             }`}
           >
             <AlertCircle className="w-3.5 h-3.5" />
-            <span>Complaints ({complaints.length})</span>
+            <span>Complaints ({myComplaints.length})</span>
           </button>
 
           {/* Segment 3: Quotes */}
@@ -126,13 +167,46 @@ export const OrdersTracker: React.FC<OrdersTrackerProps> = ({
             }`}
           >
             <Package className="w-3.5 h-3.5" />
-            <span>Quotes ({quotes.length})</span>
+            <span>Quotes ({myQuotes.length})</span>
           </button>
         </div>
       </div>
 
       {/* Sub-Filter Pills (Matching Screenshots 1, 2, 3) */}
       <div className="p-4 space-y-4">
+        {/* User Privacy & Authentication Notice */}
+        {isGuest ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-xs font-black text-amber-900">Privacy Protected</h4>
+              <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                Complaints and orders are private. Please sign in to view your personal history. Other customers' complaints are strictly hidden.
+              </p>
+              {onRequestSignIn && (
+                <button
+                  type="button"
+                  onClick={onRequestSignIn}
+                  className="mt-2 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold shadow-2xs transition"
+                >
+                  Sign In to View My Orders
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-teal-50/80 border border-teal-200/80 rounded-2xl px-3.5 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-teal-600 shrink-0" />
+              <p className="text-[11px] font-bold text-teal-900">
+                Private Account: <span className="font-normal text-teal-800">{user?.name} ({user?.phone || user?.email})</span>
+              </p>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+              Personal Only
+            </span>
+          </div>
+        )}
         {/* Sub-filters for BOOKINGS */}
         {activeSegment === 'bookings' && (
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">

@@ -18,6 +18,12 @@ import {
   WorkingSite,
   AttendanceRecord,
   AuthAccount,
+  ComplaintSubject,
+  SystemType,
+  PropertyType,
+  InverterBrand,
+  TrashItem,
+  TrashItemType,
 } from '../types';
 import {
   Shield,
@@ -59,12 +65,17 @@ import {
   Copy,
   KeyRound,
   MessageCircle,
+  Database,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { StorageService } from '../services/storage';
+import { ResendService } from '../services/resendService';
 import { CITIES } from '../data/mockData';
 import { LiveFleetMap } from './LiveFleetMap';
 import { MultiTechnicianPickerModal } from './MultiTechnicianPickerModal';
 import { AdminWarrantiesTab } from './AdminWarrantiesTab';
+import { NeonDbMigrationModal } from './NeonDbMigrationModal';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -84,6 +95,9 @@ interface AdminPanelProps {
   onAssignQuoteTechs?: (quoteId: string, techIds: string[], techNames: string[], notes?: string) => void;
   onAssignInstallationTechs?: (installationId: string, techIds: string[], techNames: string[], notes?: string) => void;
   onCreateInstallation?: (data: SiteInstallation) => void;
+  onCreateBooking?: (data: Booking) => void;
+  onCreateComplaint?: (data: Complaint) => void;
+  onCreateQuote?: (data: QuoteRequest) => void;
   onUpdateInstallationStatus?: (installationId: string, status: InstallationStatus) => void;
   onUpdateInstallationMilestone?: (
     installationId: string,
@@ -116,6 +130,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAssignQuoteTechs,
   onAssignInstallationTechs,
   onCreateInstallation,
+  onCreateBooking,
+  onCreateComplaint,
+  onCreateQuote,
   onUpdateInstallationStatus,
   onUpdateInstallationMilestone,
   onAddTechnician,
@@ -140,6 +157,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     | 'reports'
     | 'settings'
     | 'warranties'
+    | 'trash'
   >('dashboard');
 
   // Local copy of AppSettings with instant feedback toasts
@@ -151,6 +169,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() =>
     StorageService.getAttendanceRecords()
   );
+
+  // Trash & Recycle Bin State
+  const [trashItems, setTrashItems] = useState<TrashItem[]>(() => StorageService.getTrash());
+  const [trashFilter, setTrashFilter] = useState<'all' | TrashItemType>('all');
+  const [trashSearchQuery, setTrashSearchQuery] = useState('');
+  const [isEmptyTrashConfirmOpen, setIsEmptyTrashConfirmOpen] = useState(false);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{
+    itemType: TrashItemType;
+    id: string;
+    title: string;
+    subtitle?: string;
+    isPermanent?: boolean;
+  } | null>(null);
+
+  // Local synced copies for instant UI responsiveness on delete/restore
+  const [localBookings, setLocalBookings] = useState<Booking[]>(bookings);
+  const [localComplaints, setLocalComplaints] = useState<Complaint[]>(complaints);
+  const [localQuotes, setLocalQuotes] = useState<QuoteRequest[]>(quotes);
+  const [localTechnicians, setLocalTechnicians] = useState<Technician[]>(technicians);
+
+  useEffect(() => {
+    setLocalBookings(bookings);
+  }, [bookings]);
+  useEffect(() => {
+    setLocalComplaints(complaints);
+  }, [complaints]);
+  useEffect(() => {
+    setLocalQuotes(quotes);
+  }, [quotes]);
+  useEffect(() => {
+    setLocalTechnicians(technicians);
+  }, [technicians]);
 
   // Referrals & Payouts state
   const [referralsList, setReferralsList] = useState<ReferralRecord[]>(() => StorageService.getReferrals());
@@ -168,11 +218,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isAddTechModalOpen, setIsAddTechModalOpen] = useState(false);
   const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
+  const [isNeonDbModalOpen, setIsNeonDbModalOpen] = useState(false);
   const [newSiteClient, setNewSiteClient] = useState('');
   const [newSitePhone, setNewSitePhone] = useState('');
   const [newSiteCity, setNewSiteCity] = useState(CITIES[0] || 'Lahore');
   const [newSiteAddress, setNewSiteAddress] = useState('');
   const [newSiteTechs, setNewSiteTechs] = useState<string[]>([]);
+
+  // Manual Create Booking Modal State
+  const [isCreateBookingModalOpen, setIsCreateBookingModalOpen] = useState(false);
+  const [newBkCustomerName, setNewBkCustomerName] = useState('');
+  const [newBkPhone, setNewBkPhone] = useState('');
+  const [newBkCity, setNewBkCity] = useState(CITIES[0] || 'Bhakkar');
+  const [newBkAddress, setNewBkAddress] = useState('');
+  const [newBkServiceType, setNewBkServiceType] = useState('Solar Panel Washing');
+  const [newBkCapacityKw, setNewBkCapacityKw] = useState('10');
+  const [newBkPanelCount, setNewBkPanelCount] = useState('18');
+  const [newBkDate, setNewBkDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newBkTime, setNewBkTime] = useState('morning');
+  const [newBkAmount, setNewBkAmount] = useState('3500');
+  const [newBkTechIds, setNewBkTechIds] = useState<string[]>([]);
+
+  // Manual Create Complaint Modal State
+  const [isCreateComplaintModalOpen, setIsCreateComplaintModalOpen] = useState(false);
+  const [newCpCustomerName, setNewCpCustomerName] = useState('');
+  const [newCpPhone, setNewCpPhone] = useState('');
+  const [newCpCity, setNewCpCity] = useState(CITIES[0] || 'Bhakkar');
+  const [newCpAddress, setNewCpAddress] = useState('');
+  const [newCpSubject, setNewCpSubject] = useState<ComplaintSubject>('inverter_fault');
+  const [newCpSystemType, setNewCpSystemType] = useState<SystemType>('hybrid');
+  const [newCpInverterBrand, setNewCpInverterBrand] = useState<string>('Growatt');
+  const [newCpCapacity, setNewCpCapacity] = useState('10 kW');
+  const [newCpDescription, setNewCpDescription] = useState('');
+  const [newCpPriority, setNewCpPriority] = useState<'normal' | 'high' | 'urgent'>('high');
+  const [newCpTechIds, setNewCpTechIds] = useState<string[]>([]);
+
+  // Manual Create Site Visit / EPC Survey Modal State
+  const [isCreateSiteVisitModalOpen, setIsCreateSiteVisitModalOpen] = useState(false);
+  const [newSvCustomerName, setNewSvCustomerName] = useState('');
+  const [newSvPhone, setNewSvPhone] = useState('');
+  const [newSvCity, setNewSvCity] = useState(CITIES[0] || 'Bhakkar');
+  const [newSvAddress, setNewSvAddress] = useState('');
+  const [newSvSystemSizeKw, setNewSvSystemSizeKw] = useState('10');
+  const [newSvPropertyType, setNewSvPropertyType] = useState<PropertyType>('residential');
+  const [newSvSystemType, setNewSvSystemType] = useState<SystemType>('hybrid');
+  const [newSvBatteryBackup, setNewSvBatteryBackup] = useState(true);
+  const [newSvDate, setNewSvDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newSvEstimatedCost, setNewSvEstimatedCost] = useState('1650000');
+  const [newSvTechIds, setNewSvTechIds] = useState<string[]>([]);
 
   // Add Tech form state with login credentials
   const [newTechName, setNewTechName] = useState('');
@@ -237,6 +330,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Email API Key & Verification state
+  const [emailApiKey, setEmailApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [senderFromAddress, setSenderFromAddress] = useState('K&S Solar Security <noreply@knssolar.com.pk>');
+  const [testEmailRecipient, setTestEmailRecipient] = useState('yousafkhan6323@gmail.com');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    ResendService.getApiKey().then((key) => {
+      if (key) setEmailApiKey(key);
+    });
+    ResendService.getFromAddress().then((from) => {
+      if (from) setSenderFromAddress(from);
+    });
+  }, []);
+
   // Sync settings when props change
   useEffect(() => {
     setFormData(settings);
@@ -274,6 +384,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewPassword('');
     setConfirmPassword('');
     setTimeout(() => setPasswordMessage(null), 3000);
+  };
+
+  const handleSaveEmailApiKey = async () => {
+    const key = emailApiKey.trim();
+    const fromAddr = senderFromAddress.trim();
+    await ResendService.saveApiKey(key);
+    if (fromAddr) {
+      await ResendService.saveFromAddress(fromAddr);
+    }
+    handleSaveSettingField('email_api_key', key, 'Email Delivery Settings');
+  };
+
+  const handleTestEmailSend = async () => {
+    if (!testEmailRecipient.trim()) return;
+    setIsTestingEmail(true);
+    setTestEmailResult(null);
+    try {
+      const res = await ResendService.testEmailDelivery(
+        testEmailRecipient,
+        emailApiKey.trim(),
+        senderFromAddress.trim()
+      );
+      setTestEmailResult({
+        success: res.success,
+        message: res.message,
+      });
+    } catch (e: any) {
+      setTestEmailResult({
+        success: false,
+        message: e?.message || 'Failed to send test email',
+      });
+    } finally {
+      setIsTestingEmail(false);
+    }
   };
 
   // Helper to open WhatsApp
@@ -358,6 +502,239 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     triggerSaveToast(`Created working site: ${site.name}`);
   };
 
+  // Manual Create Booking Submit Handler with Multi-Technician support
+  const handleCreateBookingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBkCustomerName.trim() || !newBkPhone.trim()) {
+      triggerSaveToast('Customer name and phone number are required.');
+      return;
+    }
+
+    const assignedTechs = technicians.filter((t) => newBkTechIds.includes(t.id));
+
+    const newBooking: Booking = {
+      id: `KSB-${Math.floor(1000 + Math.random() * 9000)}`,
+      customerName: newBkCustomerName.trim(),
+      phone: newBkPhone.trim(),
+      city: newBkCity,
+      address: newBkAddress.trim() || newBkCity,
+      notes: `${newBkServiceType} (${newBkCapacityKw} kW)`,
+      panelCount: parseInt(newBkPanelCount, 10) || 18,
+      panelType: 'monocrystalline',
+      preferredDate: newBkDate,
+      preferredTime: newBkTime as any,
+      estimatedPrice: parseFloat(newBkAmount) || 3500,
+      status: assignedTechs.length > 0 ? 'confirmed' : 'pending',
+      assignedTechnicianId: assignedTechs[0]?.id,
+      assignedTechnicianName: assignedTechs.map((t) => t.name).join(', ') || undefined,
+      assignedTechnicianIds: assignedTechs.map((t) => t.id),
+      assignedTechnicianNames: assignedTechs.map((t) => t.name),
+      techJobProgress: assignedTechs.length > 0 ? 'assigned' : undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    StorageService.addBooking(newBooking);
+    const updatedBookings = StorageService.getBookings();
+    setLocalBookings(updatedBookings);
+    if (onCreateBooking) {
+      onCreateBooking(newBooking);
+    }
+    if (assignedTechs.length > 0 && onAssignBookingTechs) {
+      onAssignBookingTechs(
+        newBooking.id,
+        assignedTechs.map((t) => t.id),
+        assignedTechs.map((t) => t.name),
+        'Assigned on booking creation'
+      );
+    } else if (assignedTechs.length > 0) {
+      onAssignBookingTech(newBooking.id, assignedTechs[0].id, assignedTechs[0].name, 'Assigned on booking creation');
+    }
+
+    setIsCreateBookingModalOpen(false);
+    setNewBkCustomerName('');
+    setNewBkPhone('');
+    setNewBkAddress('');
+    setNewBkTechIds([]);
+    triggerSaveToast(
+      `✓ Booking created for ${newBooking.customerName}${
+        assignedTechs.length > 0 ? ` & assigned to ${assignedTechs.map((t) => t.name).join(', ')}` : ''
+      }!`
+    );
+  };
+
+  // Manual Create Complaint Submit Handler with Multi-Technician support
+  const handleCreateComplaintSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCpCustomerName.trim() || !newCpPhone.trim()) {
+      triggerSaveToast('Customer name and phone number are required.');
+      return;
+    }
+
+    const assignedTechs = technicians.filter((t) => newCpTechIds.includes(t.id));
+
+    const newComplaint: Complaint = {
+      id: `KSC-${Math.floor(100 + Math.random() * 900)}`,
+      customerName: newCpCustomerName.trim(),
+      phone: newCpPhone.trim(),
+      city: newCpCity,
+      address: newCpAddress.trim() || newCpCity,
+      subject: newCpSubject,
+      systemCategory: newCpSystemType,
+      description: newCpDescription.trim() || 'Site inspection and issue resolution required.',
+      status: assignedTechs.length > 0 ? 'assigned' : 'pending',
+      assignedTechnicianId: assignedTechs[0]?.id,
+      assignedTechnicianName: assignedTechs.map((t) => t.name).join(', ') || undefined,
+      assignedTechnicianIds: assignedTechs.map((t) => t.id),
+      assignedTechnicianNames: assignedTechs.map((t) => t.name),
+      createdAt: new Date().toISOString(),
+    };
+
+    StorageService.addComplaint(newComplaint);
+    const updatedComplaints = StorageService.getComplaints();
+    setLocalComplaints(updatedComplaints);
+    if (onCreateComplaint) {
+      onCreateComplaint(newComplaint);
+    }
+    if (assignedTechs.length > 0 && onAssignComplaintTechs) {
+      onAssignComplaintTechs(
+        newComplaint.id,
+        assignedTechs.map((t) => t.id),
+        assignedTechs.map((t) => t.name),
+        'Assigned on complaint creation'
+      );
+    } else if (assignedTechs.length > 0) {
+      onAssignComplaintTech(newComplaint.id, assignedTechs[0].id, assignedTechs[0].name, 'Assigned on complaint creation');
+    }
+
+    setIsCreateComplaintModalOpen(false);
+    setNewCpCustomerName('');
+    setNewCpPhone('');
+    setNewCpAddress('');
+    setNewCpDescription('');
+    setNewCpTechIds([]);
+    triggerSaveToast(
+      `✓ Complaint created for ${newComplaint.customerName}${
+        assignedTechs.length > 0 ? ` & assigned to ${assignedTechs.map((t) => t.name).join(', ')}` : ''
+      }!`
+    );
+  };
+
+  // Manual Create Site Visit / EPC Survey Submit Handler with Multi-Technician support
+  const handleCreateSiteVisitSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSvCustomerName.trim() || !newSvPhone.trim()) {
+      triggerSaveToast('Customer name and phone number are required.');
+      return;
+    }
+
+    const assignedTechs = technicians.filter((t) => newSvTechIds.includes(t.id));
+
+    const newQuote: QuoteRequest = {
+      id: `KSQ-${Math.floor(1000 + Math.random() * 9000)}`,
+      customerName: newSvCustomerName.trim(),
+      phone: newSvPhone.trim(),
+      city: newSvCity,
+      address: newSvAddress.trim() || newSvCity,
+      systemSizeKw: parseFloat(newSvSystemSizeKw) || 10,
+      propertyType: newSvPropertyType,
+      systemType: newSvSystemType,
+      batteryBackup: newSvBatteryBackup,
+      estimatedCostPkr: parseFloat(newSvEstimatedCost) || 1650000,
+      estimatedMonthlySavingsPkr: Math.round((parseFloat(newSvSystemSizeKw) || 10) * 4.8 * 30 * 58),
+      status: assignedTechs.length > 0 ? 'reviewed' : 'pending',
+      assignedTechnicianId: assignedTechs[0]?.id,
+      assignedTechnicianName: assignedTechs.map((t) => t.name).join(', ') || undefined,
+      assignedTechnicianIds: assignedTechs.map((t) => t.id),
+      assignedTechnicianNames: assignedTechs.map((t) => t.name),
+      surveyDate: newSvDate,
+      notes: `Site visit scheduled for ${newSvDate}. Location: ${newSvAddress || newSvCity}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    StorageService.addQuote(newQuote);
+    const updatedQuotes = StorageService.getQuotes();
+    setLocalQuotes(updatedQuotes);
+    if (onCreateQuote) {
+      onCreateQuote(newQuote);
+    }
+    if (assignedTechs.length > 0 && onAssignQuoteTechs) {
+      onAssignQuoteTechs(
+        newQuote.id,
+        assignedTechs.map((t) => t.id),
+        assignedTechs.map((t) => t.name),
+        'Assigned on site visit schedule'
+      );
+    } else if (assignedTechs.length > 0 && onAssignQuoteTech) {
+      onAssignQuoteTech(newQuote.id, assignedTechs[0].id, assignedTechs[0].name);
+    }
+
+    setIsCreateSiteVisitModalOpen(false);
+    setNewSvCustomerName('');
+    setNewSvPhone('');
+    setNewSvAddress('');
+    setNewSvTechIds([]);
+    triggerSaveToast(
+      `✓ Site visit scheduled for ${newQuote.customerName}${
+        assignedTechs.length > 0 ? ` & assigned to ${assignedTechs.map((t) => t.name).join(', ')}` : ''
+      }!`
+    );
+  };
+
+  // Trash & Recycle Bin Handlers
+  const handleConfirmDelete = () => {
+    if (!deleteConfirmTarget) return;
+    const { itemType, id, title, isPermanent } = deleteConfirmTarget;
+
+    if (isPermanent) {
+      StorageService.deletePermanentlyFromTrash(id);
+      setTrashItems(StorageService.getTrash());
+      triggerSaveToast(`✓ Permanently deleted "${title}"`);
+    } else {
+      if (itemType === 'booking') {
+        StorageService.deleteBooking(id, true);
+        setLocalBookings(StorageService.getBookings());
+      } else if (itemType === 'complaint') {
+        StorageService.deleteComplaint(id, true);
+        setLocalComplaints(StorageService.getComplaints());
+      } else if (itemType === 'site') {
+        StorageService.deleteWorkingSite(id, true);
+        setWorkingSites(StorageService.getWorkingSites());
+      } else if (itemType === 'site_visit') {
+        StorageService.deleteQuote(id, true);
+        setLocalQuotes(StorageService.getQuotes());
+      } else if (itemType === 'technician') {
+        StorageService.deleteTechnician(id, true);
+        setLocalTechnicians(StorageService.getTechnicians());
+      } else if (itemType === 'user') {
+        StorageService.deleteAccount(id, true);
+        setAccounts(StorageService.getAccounts());
+      }
+      setTrashItems(StorageService.getTrash());
+      triggerSaveToast(`✓ Moved "${title}" to Trash (Recycle Bin)`);
+    }
+    setDeleteConfirmTarget(null);
+  };
+
+  const handleRestoreTrashItem = (trashId: string, title: string) => {
+    const success = StorageService.restoreFromTrash(trashId);
+    if (success) {
+      setLocalBookings(StorageService.getBookings());
+      setLocalComplaints(StorageService.getComplaints());
+      setWorkingSites(StorageService.getWorkingSites());
+      setLocalQuotes(StorageService.getQuotes());
+      setLocalTechnicians(StorageService.getTechnicians());
+      setAccounts(StorageService.getAccounts());
+      setTrashItems(StorageService.getTrash());
+      triggerSaveToast(`✓ Restored "${title}" back to active list!`);
+    }
+  };
+
+  const handleEmptyTrash = () => {
+    StorageService.emptyTrash();
+    setTrashItems([]);
+    triggerSaveToast('✓ Trash emptied successfully');
+  };
+
   // Add Technician Handler with Login Account Creation
   const handleCreateTechnician = () => {
     if (!newTechName.trim() || !newTechPhone.trim()) {
@@ -421,11 +798,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleDeleteCustomer = (account: AuthAccount) => {
-    if (window.confirm(`Are you sure you want to permanently delete customer ${account.name}?`)) {
-      const updated = StorageService.deleteAccount(account.id);
-      setAccounts(updated);
-      triggerSaveToast(`Customer ${account.name} deleted.`);
-    }
+    setDeleteConfirmTarget({
+      itemType: 'user',
+      id: account.id,
+      title: account.name,
+      subtitle: `${account.email || account.username || account.phone} · Role: ${account.role}`,
+    });
   };
 
   const handleWhatsAppCustomerApproved = (account: AuthAccount) => {
@@ -508,6 +886,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsNeonDbModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-400/50 text-emerald-300 text-[11px] font-bold bg-emerald-500/15 hover:bg-emerald-500/25 backdrop-blur-xs transition active:scale-95 shadow-xs cursor-pointer"
+              title="Central Cloud Database"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <Database className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Cloud DB Live</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('trash')}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-400/40 text-rose-200 text-[11px] font-bold bg-rose-500/20 hover:bg-rose-500/30 backdrop-blur-xs transition active:scale-95 shadow-xs cursor-pointer"
+              title="Trash & Recycle Bin"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-300" />
+              <span>Trash ({trashItems.length})</span>
+            </button>
             <div className="flex items-center gap-1 px-3 py-1 rounded-full border border-white/40 text-white text-[11px] font-bold tracking-wider uppercase bg-white/10 backdrop-blur-xs">
               <Shield className="w-3.5 h-3.5" />
               <span>ADMIN</span>
@@ -756,10 +1153,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <ChevronRight className="w-5 h-5 text-white/80 absolute right-4 bottom-4" />
             </div>
 
-            {/* 13. Customer Warranties & Certificates (Amber/Gold #d97706) */}
+            {/* 13. Customer Warranties & Certificates */}
             <div
               onClick={() => setActiveTab('warranties')}
-              className="bg-gradient-to-br from-amber-600 to-amber-700 text-white rounded-3xl p-4 shadow-sm flex flex-col justify-between h-36 relative cursor-pointer active:scale-98 transition hover:opacity-95 col-span-2"
+              className="bg-gradient-to-br from-amber-600 to-amber-700 text-white rounded-3xl p-4 shadow-sm flex flex-col justify-between h-36 relative cursor-pointer active:scale-98 transition hover:opacity-95"
             >
               <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center">
                 <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
@@ -767,29 +1164,83 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div>
                 <h3 className="text-base font-black">Customer Warranties</h3>
                 <p className="text-xs text-amber-100 font-medium">
-                  {StorageService.getWarranties().length} registered product certificates &amp; expiries
+                  {StorageService.getWarranties().length} registered certificates
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white/80 absolute right-4 bottom-4" />
+            </div>
+
+            {/* 14. Central Cloud Database Connection */}
+            <div
+              onClick={() => setIsNeonDbModalOpen(true)}
+              className="bg-gradient-to-br from-indigo-800 via-indigo-900 to-slate-950 text-white rounded-3xl p-4 shadow-sm flex flex-col justify-between h-36 relative cursor-pointer active:scale-98 transition hover:opacity-95 border border-indigo-700/50"
+            >
+              <div className="w-11 h-11 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                <Database className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <h3 className="text-base font-black flex items-center gap-1.5">
+                  <span>Central Cloud DB</span>
+                  <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    Connected
+                  </span>
+                </h3>
+                <p className="text-xs text-indigo-200 font-medium">
+                  Direct Live Cloud Synchronization
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white/80 absolute right-4 bottom-4" />
+            </div>
+
+            {/* 15. Recycle Bin & Trash */}
+            <div
+              onClick={() => setActiveTab('trash')}
+              className="bg-gradient-to-br from-rose-700 via-rose-800 to-slate-900 text-white rounded-3xl p-4 shadow-sm flex flex-col justify-between h-36 relative cursor-pointer active:scale-98 transition hover:opacity-95 border border-rose-600/40"
+            >
+              <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <h3 className="text-base font-black flex items-center gap-1.5">
+                  <span>Trash &amp; Restore</span>
+                  {trashItems.length > 0 && (
+                    <span className="text-[9px] bg-white text-rose-800 px-1.5 py-0.5 rounded-full font-bold">
+                      {trashItems.length}
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-rose-200 font-medium">
+                  {trashItems.length} items in recycle bin
                 </p>
               </div>
               <ChevronRight className="w-5 h-5 text-white/80 absolute right-4 bottom-4" />
             </div>
           </div>
 
-          {/* Quick Jump to Tech Portal Banner */}
-          <div className="bg-white rounded-2xl p-3.5 border border-slate-200 flex items-center justify-between shadow-2xs">
+          {/* Cloud Database Direct Connect Quick Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-3.5 border border-indigo-700/40 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                <Wrench className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold border border-emerald-400/30">
+                <Database className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-black text-slate-900">Switch to Technician Field View</h4>
-                <p className="text-[10px] text-slate-500">Test technician portal experience</p>
+                <h4 className="text-xs font-black text-white flex items-center gap-1.5">
+                  <span>Live Cloud Database</span>
+                  <span className="text-[9px] bg-emerald-500 text-white font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Live Active
+                  </span>
+                </h4>
+                <p className="text-[10px] text-indigo-200">
+                  Your application is directly connected to the Central PostgreSQL Cloud Database
+                </p>
               </div>
             </div>
             <button
-              onClick={() => onOpenTechPortal()}
-              className="px-3 py-1.5 rounded-xl bg-[#0096aa] hover:bg-[#008294] text-white text-xs font-bold active:scale-95 transition"
+              type="button"
+              onClick={() => setIsNeonDbModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold active:scale-95 transition shadow-sm cursor-pointer"
             >
-              Open
+              Open Database Manager
             </button>
           </div>
         </div>
@@ -800,13 +1251,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* ========================================================= */}
       {activeTab === 'bookings' && (
         <div className="p-4 space-y-4">
+          {/* Header & Create Action */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                Solar Wash Orders
+              </h3>
+              <p className="text-[11px] text-slate-500 font-mono">{localBookings.length} total orders</p>
+            </div>
+            <button
+              onClick={() => setIsCreateBookingModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-[#0096aa] hover:bg-[#00838f] text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>+ Create Booking</span>
+            </button>
+          </div>
+
           {/* Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
             {(['all', 'pending', 'confirmed', 'completed', 'cancelled'] as const).map((filterKey) => {
               const count =
                 filterKey === 'all'
-                  ? bookings.length
-                  : bookings.filter((b) => b.status === filterKey).length;
+                  ? localBookings.length
+                  : localBookings.filter((b) => b.status === filterKey).length;
               return (
                 <button
                   key={filterKey}
@@ -825,7 +1293,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {/* Bookings List */}
           <div className="space-y-3">
-            {bookings
+            {localBookings
               .filter((b) => bookingFilter === 'all' || b.status === bookingFilter)
               .map((b) => {
                 const assignedNames = b.assignedTechnicianNames?.length
@@ -917,21 +1385,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </button>
                       </div>
 
-                      <button
-                        onClick={() =>
-                          setMultiTechPicker({
-                            isOpen: true,
-                            category: 'washing',
-                            targetId: b.id,
-                            jobTitle: `Wash for ${b.customerName}`,
-                            initialSelectedIds: b.assignedTechnicianIds || (b.assignedTechnicianId ? [b.assignedTechnicianId] : []),
-                            initialNotes: b.technicianNotes || '',
-                          })
-                        }
-                        className="px-3 py-1 rounded-xl bg-[#0096aa] text-white text-[11px] font-bold active:scale-95 transition"
-                      >
-                        Assign Techs
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() =>
+                            setMultiTechPicker({
+                              isOpen: true,
+                              category: 'washing',
+                              targetId: b.id,
+                              jobTitle: `Wash for ${b.customerName}`,
+                              initialSelectedIds: b.assignedTechnicianIds || (b.assignedTechnicianId ? [b.assignedTechnicianId] : []),
+                              initialNotes: b.technicianNotes || '',
+                            })
+                          }
+                          className="px-3 py-1 rounded-xl bg-[#0096aa] text-white text-[11px] font-bold active:scale-95 transition"
+                        >
+                          Assign Techs
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeleteConfirmTarget({
+                              itemType: 'booking',
+                              id: b.id,
+                              title: `Order ${b.id} (${b.customerName})`,
+                              subtitle: `${b.city} · ${b.panelCount} panels · Rs. ${b.estimatedPrice}`,
+                            })
+                          }
+                          className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition"
+                          title="Move to Trash"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -945,20 +1430,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* ========================================================= */}
       {activeTab === 'complaints' && (
         <div className="p-4 space-y-4">
+          {/* Header & Create Action */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                Technical Complaints
+              </h3>
+              <p className="text-[11px] text-slate-500 font-mono">{localComplaints.length} total issues</p>
+            </div>
+            <button
+              onClick={() => setIsCreateComplaintModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>+ New Complaint</span>
+            </button>
+          </div>
+
           {/* Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
             {(['all', 'pending', 'assigned', 'in_progress', 'resolved'] as const).map((filterKey) => {
               const count =
                 filterKey === 'all'
-                  ? complaints.length
-                  : complaints.filter((c) => c.status === filterKey).length;
+                  ? localComplaints.length
+                  : localComplaints.filter((c) => c.status === filterKey).length;
               return (
                 <button
                   key={filterKey}
                   onClick={() => setComplaintFilter(filterKey)}
                   className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition ${
                     complaintFilter === filterKey
-                      ? 'bg-[#0096aa] text-white shadow-xs'
+                      ? 'bg-rose-600 text-white shadow-xs'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                   }`}
                 >
@@ -970,7 +1472,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {/* Complaints List */}
           <div className="space-y-3">
-            {complaints
+            {localComplaints
               .filter((c) => complaintFilter === 'all' || c.status === complaintFilter)
               .map((c) => (
                 <div
@@ -1050,21 +1552,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </button>
                     </div>
 
-                    <button
-                      onClick={() =>
-                        setMultiTechPicker({
-                          isOpen: true,
-                          category: 'complaint',
-                          targetId: c.id,
-                          jobTitle: `Complaint: ${c.subject}`,
-                          initialSelectedIds: c.assignedTechnicianIds || (c.assignedTechnicianId ? [c.assignedTechnicianId] : []),
-                          initialNotes: c.technicianNotes || '',
-                        })
-                      }
-                      className="px-3 py-1 rounded-xl bg-[#0096aa] text-white text-[11px] font-bold active:scale-95 transition"
-                    >
-                      Assign Techs
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() =>
+                          setMultiTechPicker({
+                            isOpen: true,
+                            category: 'complaint',
+                            targetId: c.id,
+                            jobTitle: `Complaint: ${c.subject}`,
+                            initialSelectedIds: c.assignedTechnicianIds || (c.assignedTechnicianId ? [c.assignedTechnicianId] : []),
+                            initialNotes: c.technicianNotes || '',
+                          })
+                        }
+                        className="px-3 py-1 rounded-xl bg-[#0096aa] text-white text-[11px] font-bold active:scale-95 transition"
+                      >
+                        Assign Techs
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDeleteConfirmTarget({
+                            itemType: 'complaint',
+                            id: c.id,
+                            title: `Complaint ${c.id} (${c.customerName})`,
+                            subtitle: `${c.city} · ${c.subject}`,
+                          })
+                        }
+                        className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition"
+                        title="Move to Trash"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1133,6 +1652,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     >
                       WhatsApp
                     </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDeleteConfirmTarget({
+                          itemType: 'site',
+                          id: site.id,
+                          title: site.name,
+                          subtitle: `${site.clientName} · ${site.city}`,
+                        })
+                      }
+                      className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition"
+                      title="Move to Trash"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1163,7 +1697,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="space-y-3">
-            {technicians.map((t) => {
+            {localTechnicians.map((t) => {
               const techAccount = accounts.find(
                 (a) => a.technicianId === t.id || (a.role === 'technician' && (a.name === t.name || a.phone === t.phone))
               );
@@ -1247,17 +1781,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                     <span className="text-[10px] text-slate-400">Status: {t.status}</span>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onOpenTechPortal(t.id)}
-                        className="px-2.5 py-1 rounded-xl bg-cyan-50 text-cyan-800 border border-cyan-200 text-[11px] font-bold"
-                      >
-                        Login As Tech
-                      </button>
+                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                        ID: {t.id}
+                      </span>
                       <button
                         onClick={() => handleOpenWhatsApp(t.phone, t.name, 'Staff Dispatch')}
                         className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold"
                       >
                         WhatsApp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDeleteConfirmTarget({
+                            itemType: 'technician',
+                            id: t.id,
+                            title: t.name,
+                            subtitle: `${t.city} · ${t.phone} · ${t.specialty}`,
+                          })
+                        }
+                        className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition"
+                        title="Move to Trash"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1468,7 +2014,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             className="px-3 py-1.5 rounded-xl bg-[#2e7d32] hover:bg-emerald-700 text-white text-xs font-black shadow-xs flex items-center gap-1 active:scale-95 transition"
                           >
                             <UserCheck className="w-3.5 h-3.5" />
-                            <span>✓ Approve Account (منظور کریں)</span>
+                            <span>✓ Approve Account</span>
                           </button>
                           <button
                             onClick={() => handleRejectCustomer(u)}
@@ -1557,7 +2103,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          <LiveFleetMap technicians={technicians} onSelectTechnician={onOpenTechPortal} />
+          <LiveFleetMap technicians={technicians} />
         </div>
       )}
 
@@ -1789,14 +2335,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'site_visits' && (
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-              Site Visits &amp; EPC Surveys
-            </h3>
-            <span className="text-xs text-slate-500 font-mono">{quotes.length} total</span>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                Site Visits &amp; EPC Surveys
+              </h3>
+              <p className="text-[11px] text-slate-500 font-mono">{localQuotes.length} total surveys</p>
+            </div>
+            <button
+              onClick={() => setIsCreateSiteVisitModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>+ Schedule Site Visit</span>
+            </button>
           </div>
 
           <div className="space-y-3">
-            {quotes.map((q) => (
+            {localQuotes.map((q) => (
               <div
                 key={q.id}
                 className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2.5"
@@ -1839,21 +2394,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </button>
                   </div>
 
-                  <button
-                    onClick={() =>
-                      setMultiTechPicker({
-                        isOpen: true,
-                        category: 'survey',
-                        targetId: q.id,
-                        jobTitle: `Site Survey for ${q.customerName}`,
-                        initialSelectedIds: q.assignedTechnicianIds || (q.assignedTechnicianId ? [q.assignedTechnicianId] : []),
-                        initialNotes: q.technicianNotes || '',
-                      })
-                    }
-                    className="px-3 py-1 rounded-xl bg-[#7c4dff] text-white text-[11px] font-bold active:scale-95 transition"
-                  >
-                    Assign Surveyors
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() =>
+                        setMultiTechPicker({
+                          isOpen: true,
+                          category: 'survey',
+                          targetId: q.id,
+                          jobTitle: `Site Survey for ${q.customerName}`,
+                          initialSelectedIds: q.assignedTechnicianIds || (q.assignedTechnicianId ? [q.assignedTechnicianId] : []),
+                          initialNotes: q.technicianNotes || '',
+                        })
+                      }
+                      className="px-3 py-1 rounded-xl bg-[#7c4dff] text-white text-[11px] font-bold active:scale-95 transition"
+                    >
+                      Assign Surveyors
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDeleteConfirmTarget({
+                          itemType: 'site_visit',
+                          id: q.id,
+                          title: `Site Survey ${q.id} (${q.customerName})`,
+                          subtitle: `${q.city} · ${q.systemSizeKw}kW · Rs. ${q.estimatedCostPkr.toLocaleString()}`,
+                        })
+                      }
+                      className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition"
+                      title="Move to Trash"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -2417,6 +2989,132 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
+          {/* SECTION: EMAIL & VERIFICATION SERVICE */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                EMAIL &amp; VERIFICATION SERVICE
+              </h3>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  emailApiKey.trim().startsWith('re_')
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                }`}
+              >
+                {emailApiKey.trim().startsWith('re_')
+                  ? 'Cloud Email Active'
+                  : 'API Key Required'}
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-4">
+              <div>
+                <h4 className="text-xs font-black text-slate-900">Email Delivery API Key (Resend)</h4>
+                <p className="text-[10px] text-slate-500">
+                  Resend API key used to deliver 6-digit password reset OTP codes and official notifications directly to inboxes.
+                </p>
+              </div>
+
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={emailApiKey}
+                  onChange={(e) => setEmailApiKey(e.target.value)}
+                  placeholder="Paste your API key here (e.g. re_...)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold pr-10 focus:outline-none focus:border-cyan-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-black text-slate-900">Official Sender Address (From Email)</h4>
+                  <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Domain Verified: knssolar.com.pk
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={senderFromAddress}
+                  onChange={(e) => setSenderFromAddress(e.target.value)}
+                  placeholder="K&S Solar Security <noreply@knssolar.com.pk>"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-cyan-500 font-mono"
+                />
+                <p className="text-[9px] text-slate-500 mt-1">
+                  Verified Hostinger Domain: <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-bold">knssolar.com.pk</code>. Delivers official transactional emails to all customers and technicians.
+                </p>
+              </div>
+
+              <button
+                onClick={handleSaveEmailApiKey}
+                className="w-full py-2 rounded-xl bg-[#0096aa] hover:bg-cyan-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-98 transition cursor-pointer"
+              >
+                <span>💾</span>
+                <span>Save Email Settings</span>
+              </button>
+
+              {/* Informative Guidance Box about Verified Domain */}
+              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 text-[10px] space-y-1.5 text-emerald-950">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                  <span>✅</span>
+                  <span>Commercial Email Ready (knssolar.com.pk Verified):</span>
+                </div>
+                <p className="leading-relaxed">
+                  Official domain <strong className="font-bold underline">knssolar.com.pk</strong> is verified and active. All customers, technicians, and administrators receive verification codes directly in their inbox.
+                </p>
+              </div>
+
+              {/* Instant Test Email */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-[11px] font-bold text-slate-800">Live Test Email Delivery</h5>
+                  <span className="text-[10px] text-emerald-600 font-bold">Direct to Recipient</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={testEmailRecipient}
+                    onChange={(e) => setTestEmailRecipient(e.target.value)}
+                    placeholder="yousafkhan6323@gmail.com"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium"
+                  />
+                  <button
+                    type="button"
+                    disabled={isTestingEmail || !emailApiKey.trim()}
+                    onClick={handleTestEmailSend}
+                    className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-bold transition whitespace-nowrap cursor-pointer"
+                  >
+                    {isTestingEmail ? 'Sending...' : 'Send Test'}
+                  </button>
+                </div>
+
+                {testEmailResult && (
+                  <div
+                    className={`p-2.5 rounded-xl text-[11px] font-semibold flex items-start gap-2 ${
+                      testEmailResult.success
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    }`}
+                  >
+                    {testEmailResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                    )}
+                    <span className="leading-snug">{testEmailResult.message}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* SECTION 8: FLEET LOCATION TRACKING */}
           <div className="space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
@@ -2486,6 +3184,929 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           whatsappNumber={settings.whatsapp_support || settings.whatsapp_booking}
           onShowToast={triggerSaveToast}
         />
+      )}
+
+      {/* ========================================================= */}
+      {/* 14. TRASH & RECYCLE BIN VIEW                              */}
+      {/* ========================================================= */}
+      {activeTab === 'trash' && (
+        <div className="p-4 space-y-4">
+          {/* Header Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-rose-900 via-rose-800 to-slate-900 text-white p-4 rounded-3xl shadow-sm border border-rose-700/40">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center text-white shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-200" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-white">Trash &amp; Recycle Bin</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500/30 border border-rose-400/30 text-rose-200 text-[10px] font-bold">
+                    {trashItems.length} Deleted Items
+                  </span>
+                </div>
+                <p className="text-xs text-rose-200 font-medium">
+                  Deleted bookings, complaints, sites, visits, technicians &amp; users can be restored or erased permanently.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {trashItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsEmptyTrashConfirmOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black border border-rose-400/40 flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Empty Entire Trash</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Tabs & Search Bar */}
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {[
+                { key: 'all', label: 'All Items', count: trashItems.length },
+                { key: 'booking', label: 'Bookings', count: trashItems.filter((t) => t.itemType === 'booking').length },
+                { key: 'complaint', label: 'Complaints', count: trashItems.filter((t) => t.itemType === 'complaint').length },
+                { key: 'site', label: 'Working Sites', count: trashItems.filter((t) => t.itemType === 'site').length },
+                { key: 'site_visit', label: 'Site Visits', count: trashItems.filter((t) => t.itemType === 'site_visit').length },
+                { key: 'technician', label: 'Technicians', count: trashItems.filter((t) => t.itemType === 'technician').length },
+                { key: 'user', label: 'Users', count: trashItems.filter((t) => t.itemType === 'user').length },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setTrashFilter(tab.key as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                    trashFilter === tab.key
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      trashFilter === tab.key ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={trashSearchQuery}
+                onChange={(e) => setTrashSearchQuery(e.target.value)}
+                placeholder="Search deleted items by title, customer, phone, city or ID..."
+                className="w-full bg-white border border-slate-200 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/30"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              {trashSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setTrashSearchQuery('')}
+                  className="text-slate-400 hover:text-slate-600 font-bold text-xs absolute right-3 top-2.5"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Trashed Items List */}
+          {(() => {
+            const filtered = trashItems.filter((t) => {
+              if (trashFilter !== 'all' && t.itemType !== trashFilter) return false;
+              if (trashSearchQuery.trim()) {
+                const q = trashSearchQuery.toLowerCase();
+                const matchTitle = t.title?.toLowerCase().includes(q);
+                const matchSub = t.subtitle?.toLowerCase().includes(q);
+                const matchOrig = t.originalId?.toLowerCase().includes(q);
+                return matchTitle || matchSub || matchOrig;
+              }
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+                    <Trash2 className="w-6 h-6 stroke-[1.5]" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-800">
+                      {trashItems.length === 0 ? 'Recycle Bin is Empty' : 'No Matching Items Found'}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {trashItems.length === 0
+                        ? 'Deleted bookings, complaints, sites, visits, technicians and users will appear here.'
+                        : 'Try adjusting your search query or category filter.'}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2.5">
+                {filtered.map((item) => {
+                  const badgeColor =
+                    item.itemType === 'booking'
+                      ? 'bg-cyan-100 text-cyan-800'
+                      : item.itemType === 'complaint'
+                      ? 'bg-rose-100 text-rose-800'
+                      : item.itemType === 'site'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : item.itemType === 'site_visit'
+                      ? 'bg-purple-100 text-purple-800'
+                      : item.itemType === 'technician'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-indigo-100 text-indigo-800';
+
+                  const itemLabel =
+                    item.itemType === 'booking'
+                      ? 'Booking'
+                      : item.itemType === 'complaint'
+                      ? 'Complaint'
+                      : item.itemType === 'site'
+                      ? 'Working Site'
+                      : item.itemType === 'site_visit'
+                      ? 'Site Visit'
+                      : item.itemType === 'technician'
+                      ? 'Technician'
+                      : 'User Account';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition"
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${badgeColor}`}>
+                            {itemLabel}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400">ID: {item.originalId}</span>
+                          <span className="text-[10px] text-slate-400">
+                            Deleted: {new Date(item.deletedAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900 truncate">{item.title}</h4>
+                        {item.subtitle && <p className="text-xs text-slate-600 truncate">{item.subtitle}</p>}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreTrashItem(item.id, item.title)}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs flex items-center gap-1.5 active:scale-95 transition"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Restore / بحال کریں</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeleteConfirmTarget({
+                              itemType: item.itemType,
+                              id: item.id,
+                              title: item.title,
+                              subtitle: item.subtitle,
+                              isPermanent: true,
+                            })
+                          }
+                          className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition"
+                          title="Delete permanently"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: MANUAL CREATE BOOKING                              */}
+      {/* ========================================================= */}
+      {isCreateBookingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b pb-2.5">
+              <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5">
+                <Droplets className="w-4 h-4 text-[#0096aa]" />
+                <span>Create New Booking (Wash / Service)</span>
+              </h3>
+              <button
+                onClick={() => setIsCreateBookingModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-base"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBookingSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Customer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newBkCustomerName}
+                    onChange={(e) => setNewBkCustomerName(e.target.value)}
+                    placeholder="e.g. Tariq Mehmood"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newBkPhone}
+                    onChange={(e) => setNewBkPhone(e.target.value)}
+                    placeholder="03001234567"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">City</label>
+                  <select
+                    value={newBkCity}
+                    onChange={(e) => setNewBkCity(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  >
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Service Type</label>
+                  <select
+                    value={newBkServiceType}
+                    onChange={(e) => setNewBkServiceType(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  >
+                    <option value="Solar Panel Washing">Solar Panel Washing</option>
+                    <option value="Deep Chemical Panel Wash">Deep Chemical Panel Wash</option>
+                    <option value="System Inspection & Wash">System Inspection & Wash</option>
+                    <option value="Commercial Rooftop Cleaning">Commercial Rooftop Cleaning</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Street / House Address</label>
+                <input
+                  type="text"
+                  value={newBkAddress}
+                  onChange={(e) => setNewBkAddress(e.target.value)}
+                  placeholder="House 12, Sector B, Bhakkar"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Capacity (kW)</label>
+                  <input
+                    type="number"
+                    value={newBkCapacityKw}
+                    onChange={(e) => setNewBkCapacityKw(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Panel Count</label>
+                  <input
+                    type="number"
+                    value={newBkPanelCount}
+                    onChange={(e) => setNewBkPanelCount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Amount (Rs)</label>
+                  <input
+                    type="number"
+                    value={newBkAmount}
+                    onChange={(e) => setNewBkAmount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Preferred Date</label>
+                  <input
+                    type="date"
+                    value={newBkDate}
+                    onChange={(e) => setNewBkDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Time Slot</label>
+                  <select
+                    value={newBkTime}
+                    onChange={(e) => setNewBkTime(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  >
+                    <option value="morning">Morning (08:00 AM - 12:00 PM)</option>
+                    <option value="afternoon">Afternoon (12:00 PM - 04:00 PM)</option>
+                    <option value="evening">Evening (04:00 PM - 07:00 PM)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Technician Assignment (Multi-Technician Selection Allowed) */}
+              <div className="bg-cyan-50/70 border border-cyan-200 rounded-2xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-cyan-900 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-cyan-700" />
+                    <span>Assign Technicians / Crew ({newBkTechIds.length} Selected)</span>
+                  </label>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setNewBkTechIds(technicians.map((t) => t.id))}
+                      className="text-cyan-800 hover:underline font-bold"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-cyan-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewBkTechIds([])}
+                      className="text-slate-500 hover:underline font-medium"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {technicians.map((t) => {
+                    const isSelected = newBkTechIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setNewBkTechIds(newBkTechIds.filter((id) => id !== t.id));
+                          } else {
+                            setNewBkTechIds([...newBkTechIds, t.id]);
+                          }
+                        }}
+                        className={`flex items-center justify-between p-2 rounded-xl border text-left text-xs transition ${
+                          isSelected
+                            ? 'bg-cyan-100/90 border-cyan-500 text-cyan-950 font-bold shadow-xs'
+                            : 'bg-white border-cyan-200/80 text-slate-700 hover:border-cyan-300'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <p className="truncate text-[11px]">👨‍🔧 {t.name}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{t.city} · {t.phone}</p>
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                            isSelected ? 'bg-cyan-700 text-white' : 'border border-cyan-300 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {newBkTechIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-1 border-t border-cyan-200/60">
+                    {technicians
+                      .filter((t) => newBkTechIds.includes(t.id))
+                      .map((t) => (
+                        <span
+                          key={t.id}
+                          onClick={() => setNewBkTechIds(newBkTechIds.filter((id) => id !== t.id))}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-200/80 text-cyan-900 text-[10px] font-bold cursor-pointer hover:bg-rose-100 hover:text-rose-800 transition"
+                          title="Click to remove"
+                        >
+                          <span>{t.name}</span>
+                          <span>✕</span>
+                        </span>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-cyan-700">
+                    Ek ya multiple technicians ko select karein. Booking create hote hi un sab ko assign ho jayegi.
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateBookingModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#0096aa] hover:bg-[#00838f] text-white text-xs font-black shadow-md active:scale-98 transition"
+                >
+                  Save &amp; Assign Booking
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: MANUAL CREATE COMPLAINT                            */}
+      {/* ========================================================= */}
+      {isCreateComplaintModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b pb-2.5">
+              <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <span>Create New Technical Complaint</span>
+              </h3>
+              <button
+                onClick={() => setIsCreateComplaintModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-base"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateComplaintSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Customer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCpCustomerName}
+                    onChange={(e) => setNewCpCustomerName(e.target.value)}
+                    placeholder="e.g. Asif Raza"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCpPhone}
+                    onChange={(e) => setNewCpPhone(e.target.value)}
+                    placeholder="03009876543"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">City</label>
+                  <select
+                    value={newCpCity}
+                    onChange={(e) => setNewCpCity(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  >
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Issue Category</label>
+                  <select
+                    value={newCpSubject}
+                    onChange={(e) => setNewCpSubject(e.target.value as ComplaintSubject)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  >
+                    <option value="inverter_fault">Inverter Fault / Red Error Light</option>
+                    <option value="low_generation">Low Generation / Power Output Drop</option>
+                    <option value="battery_not_charging">Battery Not Charging / Backup Loss</option>
+                    <option value="wiring_physical_damage">Wiring / Cable / Breaker Trip</option>
+                    <option value="leakage_earthing">Earthing / Structure Current Leakage</option>
+                    <option value="other">Other Technical Issue</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Site / Customer Address</label>
+                <input
+                  type="text"
+                  value={newCpAddress}
+                  onChange={(e) => setNewCpAddress(e.target.value)}
+                  placeholder="Near Grid Station, Bhakkar"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">System Type</label>
+                  <select
+                    value={newCpSystemType}
+                    onChange={(e) => setNewCpSystemType(e.target.value as SystemType)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                  >
+                    <option value="hybrid">Hybrid</option>
+                    <option value="on_grid">On-Grid</option>
+                    <option value="off_grid">Off-Grid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Inverter Brand</label>
+                  <select
+                    value={newCpInverterBrand}
+                    onChange={(e) => setNewCpInverterBrand(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                  >
+                    <option value="Growatt">Growatt</option>
+                    <option value="Huawei">Huawei</option>
+                    <option value="Fronus">Fronus</option>
+                    <option value="Knox">Knox</option>
+                    <option value="Inverex">Inverex</option>
+                    <option value="SolarMax">SolarMax</option>
+                    <option value="Tesla Solar">Tesla Solar</option>
+                    <option value="Solis">Solis</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Priority</label>
+                  <select
+                    value={newCpPriority}
+                    onChange={(e) => setNewCpPriority(e.target.value as 'normal' | 'high' | 'urgent')}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent (Emergency)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Issue Description / Fault Details</label>
+                <textarea
+                  rows={2}
+                  value={newCpDescription}
+                  onChange={(e) => setNewCpDescription(e.target.value)}
+                  placeholder="Inverter showing error code F08, grid trip occurred..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs resize-none"
+                />
+              </div>
+
+              {/* Technician Assignment (Multi-Technician Selection Allowed) */}
+              <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-rose-900 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-rose-700" />
+                    <span>Assign Technicians / Crew ({newCpTechIds.length} Selected)</span>
+                  </label>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setNewCpTechIds(technicians.map((t) => t.id))}
+                      className="text-rose-800 hover:underline font-bold"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-rose-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewCpTechIds([])}
+                      className="text-slate-500 hover:underline font-medium"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {technicians.map((t) => {
+                    const isSelected = newCpTechIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setNewCpTechIds(newCpTechIds.filter((id) => id !== t.id));
+                          } else {
+                            setNewCpTechIds([...newCpTechIds, t.id]);
+                          }
+                        }}
+                        className={`flex items-center justify-between p-2 rounded-xl border text-left text-xs transition ${
+                          isSelected
+                            ? 'bg-rose-100/90 border-rose-500 text-rose-950 font-bold shadow-xs'
+                            : 'bg-white border-rose-200/80 text-slate-700 hover:border-rose-300'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <p className="truncate text-[11px]">👨‍🔧 {t.name}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{t.city} · {t.phone}</p>
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                            isSelected ? 'bg-rose-700 text-white' : 'border border-rose-300 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {newCpTechIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-1 border-t border-rose-200/60">
+                    {technicians
+                      .filter((t) => newCpTechIds.includes(t.id))
+                      .map((t) => (
+                        <span
+                          key={t.id}
+                          onClick={() => setNewCpTechIds(newCpTechIds.filter((id) => id !== t.id))}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-200/80 text-rose-900 text-[10px] font-bold cursor-pointer hover:bg-slate-200 transition"
+                          title="Click to remove"
+                        >
+                          <span>{t.name}</span>
+                          <span>✕</span>
+                        </span>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-rose-700">
+                    Ek ya multiple technicians ko select karein. Complaint create hote hi unko assign ho jayegi.
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateComplaintModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md active:scale-98 transition"
+                >
+                  Save &amp; Dispatch Tech
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: MANUAL SCHEDULE SITE VISIT / SURVEY                */}
+      {/* ========================================================= */}
+      {isCreateSiteVisitModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b pb-2.5">
+              <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-purple-600" />
+                <span>Schedule Site Visit &amp; EPC Survey</span>
+              </h3>
+              <button
+                onClick={() => setIsCreateSiteVisitModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-base"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSiteVisitSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Customer / Client Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newSvCustomerName}
+                    onChange={(e) => setNewSvCustomerName(e.target.value)}
+                    placeholder="e.g. Malik Shahbaz"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newSvPhone}
+                    onChange={(e) => setNewSvPhone(e.target.value)}
+                    placeholder="03017778899"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">City</label>
+                  <select
+                    value={newSvCity}
+                    onChange={(e) => setNewSvCity(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs"
+                  >
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">System Size (kW)</label>
+                  <input
+                    type="number"
+                    value={newSvSystemSizeKw}
+                    onChange={(e) => setNewSvSystemSizeKw(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Site Location / Address</label>
+                <input
+                  type="text"
+                  value={newSvAddress}
+                  onChange={(e) => setNewSvAddress(e.target.value)}
+                  placeholder="Plot 45, Industrial Estate, Bhakkar"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Property Type</label>
+                  <select
+                    value={newSvPropertyType}
+                    onChange={(e) => setNewSvPropertyType(e.target.value as PropertyType)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                  >
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="industrial">Industrial</option>
+                    <option value="agricultural">Agricultural / Tube-well</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">System Type</label>
+                  <select
+                    value={newSvSystemType}
+                    onChange={(e) => setNewSvSystemType(e.target.value as SystemType)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                  >
+                    <option value="hybrid">Hybrid</option>
+                    <option value="on_grid">On-Grid</option>
+                    <option value="off_grid">Off-Grid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Visit Date</label>
+                  <input
+                    type="date"
+                    value={newSvDate}
+                    onChange={(e) => setNewSvDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Technician Assignment (Multi-Technician Selection Allowed) */}
+              <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-purple-900 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-purple-700" />
+                    <span>Assign Surveyors / Crew ({newSvTechIds.length} Selected)</span>
+                  </label>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setNewSvTechIds(technicians.map((t) => t.id))}
+                      className="text-purple-800 hover:underline font-bold"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-purple-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewSvTechIds([])}
+                      className="text-slate-500 hover:underline font-medium"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {technicians.map((t) => {
+                    const isSelected = newSvTechIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setNewSvTechIds(newSvTechIds.filter((id) => id !== t.id));
+                          } else {
+                            setNewSvTechIds([...newSvTechIds, t.id]);
+                          }
+                        }}
+                        className={`flex items-center justify-between p-2 rounded-xl border text-left text-xs transition ${
+                          isSelected
+                            ? 'bg-purple-100/90 border-purple-500 text-purple-950 font-bold shadow-xs'
+                            : 'bg-white border-purple-200/80 text-slate-700 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <p className="truncate text-[11px]">👨‍🔧 {t.name}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{t.city} · {t.phone}</p>
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                            isSelected ? 'bg-purple-700 text-white' : 'border border-purple-300 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {newSvTechIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-1 border-t border-purple-200/60">
+                    {technicians
+                      .filter((t) => newSvTechIds.includes(t.id))
+                      .map((t) => (
+                        <span
+                          key={t.id}
+                          onClick={() => setNewSvTechIds(newSvTechIds.filter((id) => id !== t.id))}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-200/80 text-purple-900 text-[10px] font-bold cursor-pointer hover:bg-slate-200 transition"
+                          title="Click to remove"
+                        >
+                          <span>{t.name}</span>
+                          <span>✕</span>
+                        </span>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-purple-700">
+                    Ek ya multiple technicians ko select karein. Survey schedule hote hi unko assign ho jayega.
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateSiteVisitModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-black shadow-md active:scale-98 transition"
+                >
+                  Schedule &amp; Assign Visit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ========================================================= */}
@@ -2567,33 +4188,79 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
 
-            <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">Assign Technicians</label>
-              <select
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val && !newSiteTechs.includes(val)) {
-                    setNewSiteTechs([...newSiteTechs, val]);
-                  }
-                }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
-              >
-                <option value="">Select tech to add...</option>
-                {technicians.map((t) => (
-                  <option key={t.id} value={t.name}>
-                    {t.name} ({t.city})
-                  </option>
-                ))}
-              </select>
+            {/* Technicians Multi-Assignment */}
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black text-emerald-900 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Assign Technicians ({newSiteTechs.length} Selected)</span>
+                </label>
+                <div className="flex items-center gap-2 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setNewSiteTechs(technicians.map((t) => t.name))}
+                    className="text-emerald-800 hover:underline font-bold"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-emerald-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setNewSiteTechs([])}
+                    className="text-slate-500 hover:underline font-medium"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                {technicians.map((t) => {
+                  const isSelected = newSiteTechs.includes(t.name);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setNewSiteTechs(newSiteTechs.filter((name) => name !== t.name));
+                        } else {
+                          setNewSiteTechs([...newSiteTechs, t.name]);
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2 rounded-xl border text-left text-xs transition ${
+                        isSelected
+                          ? 'bg-emerald-100/90 border-emerald-500 text-emerald-950 font-bold shadow-xs'
+                          : 'bg-white border-emerald-200/80 text-slate-700 hover:border-emerald-300'
+                      }`}
+                    >
+                      <div className="min-w-0 pr-1">
+                        <p className="truncate text-[11px]">👨‍🔧 {t.name}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{t.city} · {t.phone}</p>
+                      </div>
+                      <span
+                        className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                          isSelected ? 'bg-emerald-700 text-white' : 'border border-emerald-300 text-transparent'
+                        }`}
+                      >
+                        ✓
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {newSiteTechs.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
+                <div className="flex flex-wrap gap-1 pt-1 border-t border-emerald-200/60">
                   {newSiteTechs.map((tn) => (
                     <span
                       key={tn}
                       onClick={() => setNewSiteTechs(newSiteTechs.filter((x) => x !== tn))}
-                      className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold cursor-pointer hover:line-through"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-200/80 text-emerald-900 text-[10px] font-bold cursor-pointer hover:bg-rose-100 hover:text-rose-800 transition"
+                      title="Click to remove"
                     >
-                      {tn} ✕
+                      <span>{tn}</span>
+                      <span>✕</span>
                     </span>
                   ))}
                 </div>
@@ -2694,7 +4361,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3 space-y-2.5">
               <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
                 <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                <span>Technician Login Credentials (لاگ ان تفصیلات)</span>
+                <span>Technician Login Credentials</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -2758,7 +4425,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div>
               <h3 className="font-black text-slate-900 text-base">Technician Account Created!</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                ٽیکنیشن اکاؤنٹ کامیابی سے بن گیا ہے۔ لاگ ان معلومات نوٹ کر لیں یا واٹس ایپ کریں۔
+                Technician account has been created. Note credentials or share via WhatsApp.
               </p>
             </div>
 
@@ -2796,7 +4463,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition"
               >
                 <Copy className="w-3.5 h-3.5" />
-                <span>Copy Credentials (کاپی کریں)</span>
+                <span>Copy Credentials</span>
               </button>
 
               <button
@@ -2959,6 +4626,137 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           triggerSaveToast(`Assigned ${selectedIds.length} technician(s)`);
         }}
       />
+
+      {/* ========================================================= */}
+      {/* CLOUD DATABASE MIGRATION & DATA TRANSFER MODAL            */}
+      {/* ========================================================= */}
+      <NeonDbMigrationModal
+        isOpen={isNeonDbModalOpen}
+        onClose={() => setIsNeonDbModalOpen(false)}
+        onDataImported={() => {
+          triggerSaveToast('Central database records synchronized successfully!');
+        }}
+      />
+
+      {/* ========================================================= */}
+      {/* CONFIRM DELETE MODAL (MOVE TO TRASH / PERMANENT DELETE)   */}
+      {/* ========================================================= */}
+      {deleteConfirmTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 border border-slate-100">
+            <div className="flex items-start gap-3">
+              <div
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  deleteConfirmTarget.isPermanent
+                    ? 'bg-rose-100 text-rose-600'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                <Trash2 className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-base leading-tight">
+                  {deleteConfirmTarget.isPermanent ? 'Delete Permanently?' : 'Move to Trash?'}
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  {deleteConfirmTarget.isPermanent
+                    ? 'Permanent erase · ناقابلِ واپسی'
+                    : 'Recycle Bin Safety · ٹریش میں محفوظ'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1">
+              <span className="text-[10px] font-black tracking-wider uppercase text-slate-400">
+                Item: {deleteConfirmTarget.itemType.toUpperCase()}
+              </span>
+              <h4 className="text-xs font-bold text-slate-900 leading-snug">{deleteConfirmTarget.title}</h4>
+              {deleteConfirmTarget.subtitle && (
+                <p className="text-[11px] text-slate-600 font-mono">{deleteConfirmTarget.subtitle}</p>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {deleteConfirmTarget.isPermanent
+                ? 'Kya aap waqai is item ko permanently delete karna chahte hain? Is ke baad ye item hamesha ke liye khatam ho jayega aur restore nahi ho sakega.'
+                : 'Kya aap waqai is record ko delete karna chahte hain? Ye item Admin Trash (Recycle Bin) mein mehfooz rahega jahan se aap ise kisi bhi waqt Restore kar sakte hain.'}
+            </p>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTarget(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              >
+                Cancel / منسوخ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition ${
+                  deleteConfirmTarget.isPermanent
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {deleteConfirmTarget.isPermanent ? 'Delete Forever' : 'Yes, Move to Trash'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* CONFIRM EMPTY ENTIRE TRASH MODAL                          */}
+      {/* ========================================================= */}
+      {isEmptyTrashConfirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 border border-rose-100">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-base leading-tight">
+                  Empty Entire Trash?
+                </h3>
+                <p className="text-[11px] text-rose-600 font-bold mt-0.5">
+                  Permanent Action · تمام ٹریش صاف کریں
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Kya aap waqai recycle bin ke tamam items ({trashItems.length}) ko permanent delete karna chahte hain? Is ke baad koi bhi deleted record restore nahi ho sakega.
+            </p>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsEmptyTrashConfirmOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleEmptyTrash();
+                  setIsEmptyTrashConfirmOpen(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md transition"
+              >
+                Empty Trash Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer Watermark */}
+      <div className="w-full text-center py-4 px-4 text-[9px] font-extrabold tracking-widest uppercase text-slate-400 select-none">
+        Design and Developed by Yousuf Enterprises
+      </div>
     </div>
   );
 };

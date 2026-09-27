@@ -15,14 +15,18 @@ import {
   Battery,
   List,
   Edit3,
+  ArrowLeft,
+  Shield,
 } from 'lucide-react';
 import { Complaint, UserProfile } from '../types';
+import { filterUserComplaints } from '../utils/userFilter';
 
 interface ComplaintsScreenProps {
   user: UserProfile;
   complaints: Complaint[];
   onComplaintCreated: (complaint: Complaint) => void;
   onNavigateHome: () => void;
+  onNavigateBack?: () => void;
   onNavigateMyOrders?: () => void;
   whatsappNumber: string;
 }
@@ -32,6 +36,7 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
   complaints,
   onComplaintCreated,
   onNavigateHome,
+  onNavigateBack,
   onNavigateMyOrders,
   whatsappNumber,
 }) => {
@@ -42,6 +47,9 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
   const [address, setAddress] = useState(user.city ? `${user.city}, Pakistan` : '');
   const [details, setDetails] = useState('');
   const [submittedComplaint, setSubmittedComplaint] = useState<Complaint | null>(null);
+
+  // Strictly filter complaints for the current logged-in user
+  const userComplaints = filterUserComplaints(complaints, user);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +66,9 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
       description: `[${systemType.toUpperCase()} SYSTEM] ${details.trim()}`,
       status: 'pending',
       createdAt: new Date().toISOString(),
+      userId: user.id !== 'guest' ? user.id : undefined,
+      customerId: user.id !== 'guest' ? user.id : undefined,
+      userEmail: user.email || undefined,
     };
 
     onComplaintCreated(newTicket);
@@ -72,10 +83,20 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
 
   return (
     <div className="bg-[#f8fafc] min-h-screen text-slate-800 pb-28">
-      {/* 1. Bright Red Header Banner (Matches WhatsApp Image 2026-09-23 at 2.58.34 PM) */}
-      <div className="bg-[#ef4444] text-white pt-5 pb-5 px-5 shadow-sm">
-        <h1 className="text-2xl font-black tracking-tight text-white mb-0.5">Complaints</h1>
-        <p className="text-xs text-white/90 font-medium">Submit or track your complaints</p>
+      {/* 1. Bright Red Header Banner */}
+      <div className="bg-[#ef4444] text-white pt-4 pb-4 px-4 shadow-sm flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onNavigateBack || onNavigateHome}
+          title="Go Back"
+          className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 text-white flex items-center justify-center active:scale-95 transition shrink-0"
+        >
+          <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+        </button>
+        <div>
+          <h1 className="text-xl font-black tracking-tight text-white mb-0.5">Complaints</h1>
+          <p className="text-xs text-white/90 font-medium">Submit or track your complaints</p>
+        </div>
       </div>
 
       <div className="p-4 space-y-4">
@@ -107,7 +128,7 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
             }`}
           >
             <List className="w-4 h-4" />
-            <span>My Complaints</span>
+            <span>My Complaints ({userComplaints.length})</span>
           </button>
         </div>
 
@@ -320,14 +341,27 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
         {/* 4. MY COMPLAINTS VIEW */}
         {activeTab === 'list' && (
           <div className="space-y-3">
-            {complaints.length === 0 ? (
+            {/* Confidentiality / Privacy Banner */}
+            <div className="bg-red-50/80 border border-red-200/90 rounded-2xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-red-600 shrink-0" />
+                <p className="text-[11px] font-bold text-red-950">
+                  Private History: <span className="font-normal text-red-800">{user.name || 'Account'} ({user.phone || 'Personal'})</span>
+                </p>
+              </div>
+              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
+                Confidential
+              </span>
+            </div>
+
+            {userComplaints.length === 0 ? (
               <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/90 shadow-2xs space-y-3">
                 <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mx-auto">
                   <AlertCircle className="w-8 h-8" />
                 </div>
-                <h3 className="text-base font-black text-slate-900">No complaints</h3>
+                <h3 className="text-base font-black text-slate-900">No personal complaints</h3>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  You have no active complaints on record.
+                  You have no active complaints on record under your account. Other customers' complaints are strictly private.
                 </p>
                 <button
                   type="button"
@@ -338,7 +372,7 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
                 </button>
               </div>
             ) : (
-              complaints.map((c) => (
+              userComplaints.map((c) => (
                 <div
                   key={c.id}
                   className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-2xs space-y-2.5"
@@ -363,6 +397,17 @@ export const ComplaintsScreen: React.FC<ComplaintsScreenProps> = ({
                   <p className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
                     {c.description}
                   </p>
+
+                  {/* Technician Resolution Note if available */}
+                  {c.technicianNotes && (
+                    <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-2.5 text-[11px] text-emerald-900">
+                      <p className="font-bold flex items-center gap-1 text-emerald-800">
+                        <Wrench className="w-3 h-3" />
+                        <span>Technician Update ({c.assignedTechnicianName || 'Field Tech'}):</span>
+                      </p>
+                      <p className="mt-0.5 text-emerald-950 font-medium">{c.technicianNotes}</p>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
                     <span>{new Date(c.createdAt).toLocaleDateString()}</span>

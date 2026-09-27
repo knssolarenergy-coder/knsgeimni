@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppSettings,
   Booking,
@@ -38,7 +38,8 @@ import { WarrantySearchModal } from './components/WarrantyModals';
 
 export function App() {
   const [user, setUser] = useState<UserProfile | null>(() => StorageService.getSessionUser());
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => !StorageService.getSessionUser());
+  // App opens directly into the dashboard (guest allowed to browse washing, complaints, installation, calculator)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authTargetRole, setAuthTargetRole] = useState<UserRole>('customer');
 
   const [settings, setSettings] = useState<AppSettings>(() => StorageService.getSettings());
@@ -66,6 +67,9 @@ export function App() {
     return session?.role === 'admin';
   });
 
+  // Navigation History Stack so pressing Back always returns to the previous page/modal
+  const [navHistory, setNavHistory] = useState<string[]>(['home']);
+
   const [isCityPickerOpen, setIsCityPickerOpen] = useState<boolean>(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [isComplaintModalOpen, setIsComplaintModalOpen] = useState<boolean>(false);
@@ -73,6 +77,171 @@ export function App() {
   const [isSiteInstallationModalOpen, setIsSiteInstallationModalOpen] = useState<boolean>(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState<boolean>(false);
   const [isWarrantySearchOpen, setIsWarrantySearchOpen] = useState<boolean>(false);
+
+  // Navigate to a new tab and push it onto the history stack
+  const navigateToTab = (tab: string, pushHistory = true) => {
+    if (tab === activeTab) return;
+
+    // Feature locking: non-logged-in users cannot access inverters, orders, account, admin, or technician
+    if (!user && (tab === 'inverters' || tab === 'orders' || tab === 'account' || tab === 'admin' || tab === 'technician')) {
+      handleRequestAuthRole(tab === 'admin' ? 'admin' : tab === 'technician' ? 'technician' : 'customer');
+      return;
+    }
+
+    if (tab === 'admin' && user?.role !== 'admin' && !user?.isAdmin) {
+      handleRequestAuthRole('admin');
+      return;
+    }
+    if (tab === 'technician' && user?.role !== 'technician') {
+      // Admin has super-admin privileges to inspect the technician portal without logging out or being prompted for re-auth
+      if (user?.role === 'admin' || user?.isAdmin) {
+        // Admin stays logged in as admin
+      } else {
+        handleRequestAuthRole('technician');
+        return;
+      }
+    }
+
+    if (pushHistory) {
+      setNavHistory((prev) => [...prev, tab]);
+    }
+    setActiveTab(tab);
+    if (tab === 'admin') {
+      setIsAdminMode(true);
+    } else if (user?.role === 'admin' || user?.isAdmin) {
+      // Retain admin privileges permanently across all tabs
+      setIsAdminMode(true);
+    } else if (tab !== 'technician') {
+      setIsAdminMode(false);
+    }
+  };
+
+  // Universal Back Handler: closes modals first, then pops tab history
+  const handleNavigateBack = (): boolean => {
+    if (isWarrantySearchOpen) {
+      setIsWarrantySearchOpen(false);
+      return true;
+    }
+    if (isCityPickerOpen) {
+      setIsCityPickerOpen(false);
+      return true;
+    }
+    if (isReferralModalOpen) {
+      setIsReferralModalOpen(false);
+      return true;
+    }
+    if (isBookingModalOpen) {
+      setIsBookingModalOpen(false);
+      return true;
+    }
+    if (isComplaintModalOpen) {
+      setIsComplaintModalOpen(false);
+      return true;
+    }
+    if (isInstallModalOpen) {
+      setIsInstallModalOpen(false);
+      return true;
+    }
+    if (isSiteInstallationModalOpen) {
+      setIsSiteInstallationModalOpen(false);
+      return true;
+    }
+    if (isAuthModalOpen) {
+      setIsAuthModalOpen(false);
+      return true;
+    }
+
+    // Pop the previous tab from history stack
+    if (navHistory.length > 1) {
+      const nextHistory = [...navHistory];
+      nextHistory.pop(); // remove current active tab
+      const prevTab = nextHistory[nextHistory.length - 1];
+      setNavHistory(nextHistory);
+      setActiveTab(prevTab);
+      if (prevTab === 'admin') {
+        setIsAdminMode(true);
+      } else if (user?.role === 'admin' || user?.isAdmin) {
+        setIsAdminMode(true);
+      } else if (prevTab !== 'technician') {
+        setIsAdminMode(false);
+      }
+      return true;
+    }
+
+    // If on a sub-tab, return to home or admin dashboard
+    if (activeTab !== 'home' && user?.role === 'customer') {
+      setActiveTab('home');
+      setNavHistory(['home']);
+      return true;
+    }
+    if (activeTab !== 'admin' && (user?.role === 'admin' || user?.isAdmin)) {
+      setActiveTab('admin');
+      setNavHistory(['admin']);
+      setIsAdminMode(true);
+      return true;
+    }
+
+    // Already at root home screen with no modals
+    return false;
+  };
+
+  // Expose back navigation handler to Android WebView wrapper and notify ReactNative
+  useEffect(() => {
+    (window as any).__handleAndroidBack = handleNavigateBack;
+
+    const canGoBack =
+      navHistory.length > 1 ||
+      (activeTab !== 'home' && user?.role === 'customer') ||
+      isWarrantySearchOpen ||
+      isCityPickerOpen ||
+      isReferralModalOpen ||
+      isBookingModalOpen ||
+      isComplaintModalOpen ||
+      isInstallModalOpen ||
+      isSiteInstallationModalOpen;
+
+    if ((window as any).ReactNativeWebView) {
+      try {
+        (window as any).ReactNativeWebView.postMessage(
+          JSON.stringify({ type: 'CAN_GO_BACK', canGoBack })
+        );
+      } catch (e) {}
+    }
+  }, [
+    navHistory,
+    activeTab,
+    isWarrantySearchOpen,
+    isCityPickerOpen,
+    isReferralModalOpen,
+    isBookingModalOpen,
+    isComplaintModalOpen,
+    isInstallModalOpen,
+    isSiteInstallationModalOpen,
+    isAuthModalOpen,
+    user,
+  ]);
+
+  // Root-Level Silent Tracking Engine:
+  // Runs resilient background tracking whenever a technician is logged in, or if tracking
+  // was previously active before mobile restart / browser reload.
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    try {
+      const isTrackingPersisted = localStorage.getItem('ks_solar_tracking_enabled') === 'true';
+      const savedTechId = localStorage.getItem('ks_solar_active_tracking_tech_id') || activeTechnicianId;
+      const isTechContext = user?.role === 'technician' || activeTab === 'technician' || isTrackingPersisted;
+
+      if (isTechContext && savedTechId) {
+        cleanup = StorageService.startSilentTechnicianTracking(savedTechId);
+      }
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [user?.role, activeTab, activeTechnicianId]);
 
   // Authentication Handlers
   const handleLoginSuccess = (loggedInUser: UserProfile) => {
@@ -97,7 +266,8 @@ export function App() {
   const handleLogout = () => {
     StorageService.logout();
     setUser(null);
-    setIsAuthModalOpen(true);
+    setIsAuthModalOpen(false);
+    setActiveTab('home');
     setAuthTargetRole('customer');
   };
 
@@ -346,24 +516,14 @@ export function App() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-stone-950 flex flex-col items-center justify-center">
-      {/* Native Mobile App Device Chassis & Presentation */}
+    <div className="w-full min-h-screen bg-stone-50 flex flex-col items-center justify-start">
+      {/* Edge-to-Edge Responsive Layout Fitting Phone Screen Directly */}
       <MobileFrame
         user={user}
         activeTab={activeTab}
-        onNavigateTab={(tab) => {
-          if (tab === 'admin' && user?.role !== 'admin') {
-            handleRequestAuthRole('admin');
-            return;
-          }
-          if (tab === 'technician' && user?.role !== 'technician') {
-            handleRequestAuthRole('technician');
-            return;
-          }
-          setActiveTab(tab);
-          if (tab === 'admin') setIsAdminMode(true);
-          else setIsAdminMode(false);
-        }}
+        onNavigateTab={navigateToTab}
+        onNavigateBack={handleNavigateBack}
+        canGoBack={navHistory.length > 1 || activeTab !== 'home'}
         isAdminMode={isAdminMode || activeTab === 'admin'}
         onToggleAdminMode={handleToggleAdminMode}
         onOpenCityPicker={() => setIsCityPickerOpen(true)}
@@ -376,11 +536,11 @@ export function App() {
         onRequestAuthRole={handleRequestAuthRole}
       >
         {/* If Authentication is required or user is switching portals */}
-        {(!user || isAuthModalOpen) ? (
+        {isAuthModalOpen ? (
           <AuthScreen
             onLoginSuccess={handleLoginSuccess}
             targetRole={authTargetRole}
-            onCancel={user ? () => setIsAuthModalOpen(false) : undefined}
+            onCancel={() => setIsAuthModalOpen(false)}
           />
         ) : (
           <>
@@ -390,26 +550,23 @@ export function App() {
                 user={effectiveUser}
                 bookings={bookings}
                 settings={settings}
-                onNavigateTab={(tab) => {
-                  if (tab === 'admin' && user?.role !== 'admin') {
-                    handleRequestAuthRole('admin');
-                    return;
-                  }
-                  if (tab === 'technician' && user?.role !== 'technician') {
-                    handleRequestAuthRole('technician');
-                    return;
-                  }
-                  setActiveTab(tab);
-                }}
-                onOpenComplaintModal={() => setActiveTab('complaints')}
+                onNavigateTab={navigateToTab}
+                onRequestSignIn={() => handleRequestAuthRole('customer')}
+                onOpenComplaintModal={() => navigateToTab('complaints')}
                 onOpenCityPicker={() => setIsCityPickerOpen(true)}
                 onOpenInstallModal={() => setIsInstallModalOpen(true)}
-                onOpenReferralModal={() => setIsReferralModalOpen(true)}
+                onOpenReferralModal={() => {
+                  if (!user) {
+                    handleRequestAuthRole('customer');
+                  } else {
+                    setIsReferralModalOpen(true);
+                  }
+                }}
                 onOpenSiteInstallationModal={() => {
                   if (user?.role === 'admin') {
-                    setActiveTab('admin');
+                    navigateToTab('admin');
                   } else {
-                    setActiveTab('installation');
+                    navigateToTab('installation');
                   }
                 }}
                 onLogout={handleLogout}
@@ -421,31 +578,41 @@ export function App() {
               <MobileBookWash
                 user={effectiveUser}
                 onBookingCreated={handleBookingCreated}
-                onNavigateHome={() => setActiveTab('home')}
+                onNavigateHome={() => navigateToTab('home')}
+                onNavigateBack={handleNavigateBack}
                 whatsappNumber={settings.whatsapp_booking}
               />
             )}
 
             {/* Screen 3: Inverter Telemetry Portals */}
-            {activeTab === 'inverters' && <InverterSection />}
+            {activeTab === 'inverters' && (
+              <InverterSection onNavigateBack={handleNavigateBack} />
+            )}
 
             {/* Screen 4: Track Orders */}
             {activeTab === 'orders' && (
               <OrdersTracker
+                user={effectiveUser}
                 bookings={bookings}
                 complaints={complaints}
                 quotes={quotes}
                 onUpdateStatus={handleUpdateBookingStatus}
-                onOpenBookingModal={() => setIsBookingModalOpen(true)}
-                onOpenComplaintModal={() => setActiveTab('complaints')}
-                onOpenQuoteModal={() => setActiveTab('installation')}
+                onOpenBookingModal={() => navigateToTab('booking')}
+                onOpenComplaintModal={() => navigateToTab('complaints')}
+                onOpenQuoteModal={() => navigateToTab('installation')}
+                onNavigateBack={handleNavigateBack}
+                onRequestSignIn={() => handleRequestAuthRole('customer')}
                 whatsappNumber={settings.whatsapp_booking}
               />
             )}
 
             {/* Screen 5: Solar Sizing & ROI Calculator */}
             {activeTab === 'calculator' && (
-              <SolarCalculator user={effectiveUser} onSubmitQuote={handleQuoteSubmitted} />
+              <SolarCalculator
+                user={effectiveUser}
+                onSubmitQuote={handleQuoteSubmitted}
+                onNavigateBack={handleNavigateBack}
+              />
             )}
 
             {/* Screen 6: Account Screen (Matches Screenshots 4, 5, 6) */}
@@ -458,6 +625,7 @@ export function App() {
                 }}
                 onOpenReferralModal={() => setIsReferralModalOpen(true)}
                 onOpenWarrantySearch={() => setIsWarrantySearchOpen(true)}
+                onNavigateBack={handleNavigateBack}
                 whatsappNumber={settings.whatsapp_support}
               />
             )}
@@ -470,8 +638,9 @@ export function App() {
                 onComplaintCreated={(newComplaint) => {
                   handleComplaintCreated(newComplaint);
                 }}
-                onNavigateHome={() => setActiveTab('home')}
-                onNavigateMyOrders={() => setActiveTab('orders')}
+                onNavigateHome={() => navigateToTab('home')}
+                onNavigateBack={handleNavigateBack}
+                onNavigateMyOrders={() => navigateToTab('orders')}
                 whatsappNumber={settings.whatsapp_support}
               />
             )}
@@ -483,8 +652,9 @@ export function App() {
                 onQuoteCreated={(newQuote) => {
                   handleQuoteSubmitted(newQuote);
                 }}
-                onNavigateHome={() => setActiveTab('home')}
-                onNavigateMyOrders={() => setActiveTab('orders')}
+                onNavigateHome={() => navigateToTab('home')}
+                onNavigateBack={handleNavigateBack}
+                onNavigateMyOrders={() => navigateToTab('orders')}
                 whatsappNumber={settings.whatsapp_booking || settings.whatsapp_support}
               />
             )}
@@ -505,7 +675,7 @@ export function App() {
                   handleUpdateComplaintTechNotes(cId, notes || '', status)
                 }
                 onUpdateQuoteNotes={handleUpdateQuoteNotes}
-                onNavigateHome={() => setActiveTab('home')}
+                onNavigateHome={() => navigateToTab(user?.role === 'admin' || user?.isAdmin ? 'admin' : 'home')}
                 onLogout={handleLogout}
               />
             )}
@@ -530,12 +700,15 @@ export function App() {
                 onAssignQuoteTechs={handleAssignQuoteTechs}
                 onAssignInstallationTechs={handleAssignInstallationTechs}
                 onCreateInstallation={handleCreateInstallation}
+                onCreateBooking={handleBookingCreated}
+                onCreateComplaint={handleComplaintCreated}
+                onCreateQuote={handleQuoteSubmitted}
                 onUpdateInstallationStatus={handleUpdateInstallationStatus}
                 onUpdateInstallationMilestone={handleUpdateInstallationMilestone}
                 onAddTechnician={handleAddTechnician}
                 onSaveSettings={handleSaveSettings}
                 onOpenTechPortal={handleOpenTechPortal}
-                onNavigateHome={() => setActiveTab('home')}
+                onNavigateHome={() => navigateToTab('home')}
                 onLogout={handleLogout}
               />
             )}

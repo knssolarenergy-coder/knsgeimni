@@ -10,6 +10,7 @@ import {
   CheckCircle,
   HelpCircle,
   BatteryCharging,
+  ArrowLeft,
 } from 'lucide-react';
 import { PropertyType, QuoteRequest, SystemType, UserProfile } from '../types';
 import { CITIES } from '../data/mockData';
@@ -17,9 +18,10 @@ import { CITIES } from '../data/mockData';
 interface SolarCalculatorProps {
   user: UserProfile;
   onSubmitQuote: (quote: QuoteRequest) => void;
+  onNavigateBack?: () => void;
 }
 
-export const SolarCalculator: React.FC<SolarCalculatorProps> = ({ user, onSubmitQuote }) => {
+export const SolarCalculator: React.FC<SolarCalculatorProps> = ({ user, onSubmitQuote, onNavigateBack }) => {
   const [systemSizeKw, setSystemSizeKw] = useState<number>(10);
   const [propertyType, setPropertyType] = useState<PropertyType>('residential');
   const [systemType, setSystemType] = useState<SystemType>('hybrid');
@@ -71,14 +73,26 @@ export const SolarCalculator: React.FC<SolarCalculatorProps> = ({ user, onSubmit
   return (
     <div className="p-4 space-y-4 pb-24">
       {/* Header */}
-      <div>
-        <h2 className="text-lg font-extrabold text-stone-900 tracking-tight flex items-center gap-2">
-          <Calculator className="w-5 h-5 text-amber-500" />
-          Solar Sizing &amp; ROI Calculator
-        </h2>
-        <p className="text-xs text-stone-500 mt-0.5">
-          Estimate energy yield, rooftop area, and PKR bill savings.
-        </p>
+      <div className="flex items-center gap-2.5">
+        {onNavigateBack && (
+          <button
+            type="button"
+            onClick={onNavigateBack}
+            title="Go Back"
+            className="w-9 h-9 rounded-xl bg-white border border-stone-200/90 shadow-2xs flex items-center justify-center text-stone-700 hover:text-stone-900 active:scale-95 transition shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        )}
+        <div>
+          <h2 className="text-lg font-extrabold text-stone-900 tracking-tight flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-amber-500" />
+            Solar Sizing &amp; ROI Calculator
+          </h2>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Estimate energy yield, rooftop area, and PKR bill savings.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 items-start">
